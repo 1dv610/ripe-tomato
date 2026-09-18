@@ -15,7 +15,7 @@ const sketch = (p) => {
    */
   p.setup = () => {
     p.createCanvas(400, 400)
-    camera = new Camera(p.height, p.width)
+    camera = new Camera(p.height)
   }
 
   /**

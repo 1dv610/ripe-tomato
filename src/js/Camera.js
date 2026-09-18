@@ -6,11 +6,9 @@ export class Camera {
    * Creates a new Camera instance.
    *
    * @param {number} height The height of the camera.
-   * @param {number} width The width of the camera.
    */
-  constructor(height, width = 0) {
+  constructor(height) {
     this.height = height
-    this.width = width
   }
 
   /**
