@@ -17,9 +17,27 @@ const sketch = (p) => {
    * The main drawing function for the p5.js sketch.
    */
   p.draw = () => {
-    p.background(220)
+    p.drawBackground()
+    p.drawTitle()
+  }
+
+  /**
+   * Draws the background of the canvas with a specific color.
+   */
+  p.drawBackground = () => {
+    p.background(135, 206, 235)
+  }
+
+  /**
+   * Draws the title text on the canvas.
+   */
+  p.drawTitle = () => {
+    const TITLE_TEXT_TOP_DISPLACEMENT = 20
+    const TITLE = 'Ripe Tomato'
+
     p.textAlign(p.CENTER, p.CENTER)
-    p.text('Hello, world!', p.width / 2, p.height / 2)
+    p.fill(0)
+    p.text(TITLE, p.width / 2, TITLE_TEXT_TOP_DISPLACEMENT)
   }
 }
 
