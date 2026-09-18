@@ -1,0 +1,48 @@
+{
+  "name": "ripe-tomato",
+  "version": "1.0.0",
+  "description": "1DV610 - Ripe Tomato with p5.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:match": "vitest run -t",
+    "lint": "eslint ./src --cache && stylelint \"src/**/*.css\" --cache",
+    "lint:fix": "eslint ./src --cache --fix && stylelint \"src/**/*.css\" --cache --fix",
+    "format": "prettier --write ./src",
+    "format:check": "prettier ./src --check"
+  },
+  "contributors": [
+    "Mats Lock <mats.loock@lnu.se>",
+    "Daniel Toll <daniel.toll@lnu.se>"
+  ],
+  "license": "Unlicense",
+  "private": false,
+  "dependencies": {
+    "p5": "^2.3.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@html-eslint/eslint-plugin": "^0.66.1",
+    "@html-eslint/parser": "^0.66.1",
+    "@lnu/eslint-config": "^2.0.13",
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "@vitest/eslint-plugin": "^1.6.27",
+    "eslint": "^10.10.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-jsdoc": "^64.5.2",
+    "eslint-plugin-n": "^18.3.0",
+    "eslint-plugin-regexp": "^3.3.0",
+    "eslint-plugin-security": "^4.0.1",
+    "globals": "^17.12.0",
+    "jsdom": "^30.1.0",
+    "prettier": "^3.9.8",
+    "stylelint": "^17.15.0",
+    "stylelint-config-standard": "^40.0.0",
+    "vite": "^8.3.0",
+    "vitest": "^4.1.11"
+  }
+}
