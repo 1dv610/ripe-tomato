@@ -19,6 +19,7 @@ const sketch = (p) => {
   p.draw = () => {
     p.drawBackground()
     p.drawTitle()
+    p.drawTomato()
   }
 
   /**
@@ -38,6 +39,18 @@ const sketch = (p) => {
     p.textAlign(p.CENTER, p.CENTER)
     p.fill(0)
     p.text(TITLE, p.width / 2, TITLE_TEXT_TOP_DISPLACEMENT)
+  }
+
+  /**
+   * Draws a tomato shape on the canvas.
+   */
+  p.drawTomato = () => {
+    const TOMATO_COLOR = [255, 0, 0]
+    const TOMATO_POSITION = { x: p.width / 2, y: p.height / 2 }
+    const TOMATO_SIZE = 100
+
+    p.fill(TOMATO_COLOR)
+    p.ellipse(TOMATO_POSITION.x, TOMATO_POSITION.y, TOMATO_SIZE)
   }
 }
 
