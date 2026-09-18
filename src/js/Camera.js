@@ -21,11 +21,11 @@ export class Camera {
   convertToCanvasCoordinates = (x, y) => {
     const GROUND_HEIGHT = 1
     const DISPLACEMENT = 10
+    const SCALE = 100
 
-    const scale = 100
-    const canvasX = x * scale + DISPLACEMENT
-    const canvasY = this.height - (y + GROUND_HEIGHT) * scale
+    const canvasX = x * SCALE + DISPLACEMENT
+    const canvasY = this.height - (y + GROUND_HEIGHT) * SCALE
 
-    return { x: canvasX, y: canvasY, scale }
+    return { x: canvasX, y: canvasY, scale: SCALE }
   }
 }
