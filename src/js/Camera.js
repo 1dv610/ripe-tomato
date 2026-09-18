@@ -5,8 +5,8 @@ export class Camera {
   /**
    * Creates a new Camera instance.
    *
-   * @param {Number} height The height of the camera.
-   * @param {Number} width The width of the camera.
+   * @param {number} height The height of the camera.
+   * @param {number} width The width of the camera.
    */
   constructor(height, width = 0) {
     this.height = height
@@ -16,9 +16,9 @@ export class Camera {
   /**
    * Converts world coordinates to canvas coordinates.
    *
-   * @param {*} x The x-coordinate in world space.
-   * @param {*} y The y-coordinate in world space.
-   * @returns The corresponding coordinates in canvas space.
+   * @param {number} x The x-coordinate in world space.
+   * @param {number} y The y-coordinate in world space.
+   * @returns {{x: number, y: number, scale: number}} The corresponding coordinates in canvas space.
    */
   convertToCanvasCoordinates = (x, y) => {
     const GROUND_HEIGHT = 1
