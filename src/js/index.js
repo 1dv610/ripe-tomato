@@ -20,6 +20,7 @@ const sketch = (p) => {
     p.drawBackground()
     p.drawTitle()
     p.drawTomato()
+    p.drawGround()
   }
 
   /**
@@ -51,6 +52,17 @@ const sketch = (p) => {
 
     p.fill(TOMATO_COLOR)
     p.ellipse(TOMATO_POSITION.x, TOMATO_POSITION.y, TOMATO_SIZE)
+  }
+
+  /**
+   * Draws the ground on the canvas with a specific color and height.
+   */
+  p.drawGround = () => {
+    const GROUND_COLOR = [34, 139, 34]
+    const GROUND_HEIGHT = 50
+
+    p.fill(GROUND_COLOR)
+    p.rect(0, p.height - GROUND_HEIGHT, p.width, GROUND_HEIGHT)
   }
 }
 
