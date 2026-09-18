@@ -1,5 +1,5 @@
 import p5 from 'p5'
-import { Camera } from './Camera.js'
+import { Camera } from '@/js/Camera.js'
 
 /**
  * The main sketch for the p5.js application.
