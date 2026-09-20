@@ -1,11 +1,20 @@
 /**
+ * @typedef {object} CanvasCoordinates
+ * @property {number} x The x-coordinate in canvas space.
+ * @property {number} y The y-coordinate in canvas space.
+ * @property {number} scale The scale factor for converting world-space sizes (e.g. a diameter) to canvas space.
+ */
+
+/**
  * Represents a camera that converts world coordinates to canvas coordinates.
+ *
+ * @property {number} height The height of the canvas, in pixels, that world-space y-coordinates are anchored and flipped against.
  */
 export class Camera {
   /**
-   * Creates a new Camera instance.
+   * Creates a new Camera for a canvas of the given height.
    *
-   * @param {number} height The height of the camera.
+   * @param {number} height The height of the canvas, in pixels.
    */
   constructor(height) {
     this.height = height
@@ -18,7 +27,7 @@ export class Camera {
    *
    * @param {number} x The x-coordinate in world space.
    * @param {number} y The y-coordinate in world space.
-   * @returns {{x: number, y: number, scale: number}} The corresponding coordinates in canvas space, and the scale factor.
+   * @returns {CanvasCoordinates} The corresponding coordinates in canvas space, and the scale factor.
    */
   convertToCanvasCoordinates = (x, y) => {
     const GROUND_HEIGHT = 1

@@ -4,14 +4,14 @@ import { Camera } from '@/js/Camera.js'
 /**
  * The main sketch for the p5.js application.
  *
- * @param {p5} p - The p5.js instance.
+ * @param {p5} p The p5.js instance.
  */
 const sketch = (p) => {
   /** @type {Camera} */
   let camera
 
   /**
-   * Sets up the p5.js sketch by creating a canvas.
+   * Called once by p5.js before the draw loop starts. Creates the canvas and initializes the camera.
    */
   p.setup = () => {
     p.createCanvas(400, 400)
@@ -19,7 +19,7 @@ const sketch = (p) => {
   }
 
   /**
-   * The main drawing function for the p5.js sketch.
+   * Called by p5.js once per animation frame to render the scene.
    */
   p.draw = () => {
     const TOMATO_CENTER_X = 1
@@ -40,7 +40,7 @@ const sketch = (p) => {
   }
 
   /**
-   * Draws the title text on the canvas.
+   * Draws the sketch title centered near the top of the canvas.
    */
   p.drawTitle = () => {
     const TITLE_TEXT_TOP_DISPLACEMENT = 20
@@ -54,9 +54,9 @@ const sketch = (p) => {
   /**
    * Draws a tomato shape on the canvas.
    *
-   * @param {number} centerPositionX - The x-coordinate of the tomato's center in world space.
-   * @param {number} centerPositionY - The y-coordinate of the tomato's center in world space.
-   * @param {number} diameter - The diameter of the tomato.
+   * @param {number} centerPositionX The x-coordinate of the tomato's center in world space.
+   * @param {number} centerPositionY The y-coordinate of the tomato's center in world space.
+   * @param {number} diameter The diameter of the tomato, in world-space units.
    */
   p.drawTomato = (centerPositionX, centerPositionY, diameter) => {
     const TOMATO_COLOR = [255, 0, 0]
