@@ -26,23 +26,23 @@ const sketch = (p) => {
     const TOMATO_CENTER_Y = 0.5
     const TOMATO_DIAMETER = 1
 
-    p.drawBackground()
-    p.drawTitle()
-    p.drawTomato(TOMATO_CENTER_X, TOMATO_CENTER_Y, TOMATO_DIAMETER)
-    p.drawGround()
+    drawBackground()
+    drawTitle()
+    drawTomato(TOMATO_CENTER_X, TOMATO_CENTER_Y, TOMATO_DIAMETER)
+    drawGround()
   }
 
   /**
    * Draws the background of the canvas with a sky blue color.
    */
-  p.drawBackground = () => {
+  const drawBackground = () => {
     p.background(135, 206, 235)
   }
 
   /**
    * Draws the sketch title centered near the top of the canvas.
    */
-  p.drawTitle = () => {
+  const drawTitle = () => {
     const TITLE_TEXT_TOP_DISPLACEMENT = 20
     const TITLE = 'Ripe Tomato'
 
@@ -58,7 +58,7 @@ const sketch = (p) => {
    * @param {number} centerPositionY The y-coordinate of the tomato's center in world space.
    * @param {number} diameter The diameter of the tomato, in world-space units.
    */
-  p.drawTomato = (centerPositionX, centerPositionY, diameter) => {
+  const drawTomato = (centerPositionX, centerPositionY, diameter) => {
     const TOMATO_COLOR = [255, 0, 0]
 
     const { x, y, scale } = camera.convertToCanvasCoordinates(centerPositionX, centerPositionY)
@@ -70,7 +70,7 @@ const sketch = (p) => {
   /**
    * Draws the ground on the canvas with a specific color and height.
    */
-  p.drawGround = () => {
+  const drawGround = () => {
     const GROUND_COLOR = [34, 139, 34]
     const GROUND_HEIGHT = 1
 
