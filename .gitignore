@@ -158,6 +158,9 @@ dist/
 tmp/
 temp/
 
+# Personal scratch files, not part of the project
+.sandbox/
+
 ### VisualStudioCode ###
 .vscode/*
 !.vscode/settings.json
