@@ -116,6 +116,18 @@ import { Player } from './model/Player.js'
 
 Använd alltid relativa sökvägar, vanliga snedstreck och filändelsen `.js`.
 
+## Felsökning (debugging)
+
+Rekommenderade VS Code-tillägg finns i [.vscode/extensions.json](.vscode/extensions.json) och föreslås automatiskt när projektet öppnas.
+
+### Skissen i webbläsaren
+
+En färdig debug-konfiguration finns i [.vscode/launch.json](.vscode/launch.json). Sätt en brytpunkt i valfri fil under `src/js`, öppna Run & Debug (`Ctrl+Shift+D`) och kör **"Debug Ripe Tomato (Vite)"**. Den startar utvecklingsservern automatiskt och öppnar skissen i Chrome med brytpunkterna aktiva.
+
+### Tester (Vitest)
+
+Installera tillägget **Vitest** (`vitest.explorer`) för en Testing-panel i VS Code med kör- och debugknappar per test, per fil eller för hela sviten. Brytpunkter i test- och källfiler fungerar direkt utan egen konfiguration.
+
 ## Kommandon
 
 ```sh
