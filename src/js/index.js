@@ -1,5 +1,5 @@
 import p5 from 'p5'
-import { Camera } from '@/js/Camera.js'
+import { CoordinateConverter } from '@/js/CoordinateConverter.js'
 
 /**
  * The main sketch for the p5.js application.
@@ -7,15 +7,15 @@ import { Camera } from '@/js/Camera.js'
  * @param {p5} p The p5.js instance.
  */
 const sketch = (p) => {
-  /** @type {Camera} */
-  let camera
+  /** @type {CoordinateConverter} */
+  let coordinateConverter
 
   /**
-   * Called once by p5.js before the draw loop starts. Creates the canvas and initializes the camera.
+   * Called once by p5.js before the draw loop starts. Creates the canvas and initializes the coordinate converter.
    */
   p.setup = () => {
     p.createCanvas(400, 400)
-    camera = new Camera(p.height)
+    coordinateConverter = new CoordinateConverter(p.height)
   }
 
   /**
@@ -61,10 +61,11 @@ const sketch = (p) => {
   const drawTomato = (centerPositionX, centerPositionY, diameter) => {
     const TOMATO_COLOR = [255, 0, 0]
 
-    const { x, y, scale } = camera.convertToCanvasCoordinates(centerPositionX, centerPositionY)
+    const { x, y } = coordinateConverter.worldToCanvas(centerPositionX, centerPositionY)
+    const diameterInPixels = diameter * CoordinateConverter.pixelsPerTomato
 
     p.fill(TOMATO_COLOR)
-    p.ellipse(x, y, diameter * scale, diameter * scale)
+    p.ellipse(x, y, diameterInPixels, diameterInPixels)
   }
 
   /**
@@ -74,10 +75,10 @@ const sketch = (p) => {
     const GROUND_COLOR = [34, 139, 34]
     const GROUND_HEIGHT = 1
 
-    const { y, scale } = camera.convertToCanvasCoordinates(0, 0)
+    const { y } = coordinateConverter.worldToCanvas(0, 0)
 
     p.fill(GROUND_COLOR)
-    p.rect(0, y, p.width, GROUND_HEIGHT * scale)
+    p.rect(0, y, p.width, GROUND_HEIGHT * CoordinateConverter.pixelsPerTomato)
   }
 }
 
