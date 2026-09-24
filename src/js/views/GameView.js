@@ -30,7 +30,7 @@ export class GameView {
   /**
    * Draws the game.
    *
-   * @param {Tomato} tomatoCenter The center position of the tomato in world space.
+   * @param {{x: number, y: number}} tomatoCenter The center position of the tomato in world space.
    * @param {number} tomatoDiameter The diameter of the tomato, in world-space units.
    */
   draw = (tomatoCenter, tomatoDiameter) => {
