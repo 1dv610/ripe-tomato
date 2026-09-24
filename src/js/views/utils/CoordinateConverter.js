@@ -1,24 +1,3 @@
-/*
- * On the name: this started out as a candidate replacement for `Camera`
- * (src/js/Camera.js), which today only holds a single coordinate-conversion
- * method. Calling that "Camera" is premature — it screams zoom, panning and
- * lenses, none of which exist yet. This is "Scream Design" / intention-
- * revealing naming: a name should announce what the code does *now*, not
- * what it might grow into.
- *
- * `CoordinateConverter` says exactly what this class does today: it
- * converts coordinates between two spaces, nothing more. Renaming it to
- * `Camera` is deferred until it actually earns that responsibility (e.g.
- * once it grows panning or zooming) — a YAGNI-driven refactor, not a
- * speculative one.
- *
- * This isn't a new problem, either: older UI frameworks like MFC had
- * dedicated `LPtoDP`/`DPtoLP` methods for exactly this kind of logical-to-
- * device conversion — proof that "just a converter" has stood on its own
- * as a legitimate, nameable concept, independent of any camera-like
- * abstraction.
- */
-
 /**
  * @typedef {object} CanvasCoordinates
  * @property {number} x The x-coordinate in canvas space, in pixels.
