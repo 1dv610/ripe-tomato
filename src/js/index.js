@@ -1,5 +1,5 @@
 import p5 from 'p5'
-import { CoordinateConverter } from '@/js/CoordinateConverter.js'
+import { CoordinateConverter } from '@/js/views/utils/CoordinateConverter.js'
 
 /**
  * The main sketch for the p5.js application.
