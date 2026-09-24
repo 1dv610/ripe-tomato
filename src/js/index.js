@@ -1,5 +1,5 @@
 import p5 from 'p5'
-import { GameView } from '@/js/views/GameView.js'
+import { GameView } from '@/views/GameView.js'
 /**
  * The main sketch for the p5.js application.
  *

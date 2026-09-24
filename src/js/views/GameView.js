@@ -1,4 +1,4 @@
-import { CoordinateConverter } from './utils/CoordinateConverter.js'
+import { CoordinateConverter } from '@/views/utils/CoordinateConverter.js'
 
 /**
  * The view for the game.

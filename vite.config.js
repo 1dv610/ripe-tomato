@@ -6,7 +6,7 @@ export default defineConfig({
   publicDir: '../public',
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@': fileURLToPath(new URL('./src/js', import.meta.url)),
     },
   },
   build: {
