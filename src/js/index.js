@@ -1,84 +1,33 @@
 import p5 from 'p5'
-import { CoordinateConverter } from '@/js/views/utils/CoordinateConverter.js'
-
+import { GameView } from '@/js/views/GameView.js'
 /**
  * The main sketch for the p5.js application.
  *
  * @param {p5} p The p5.js instance.
  */
 const sketch = (p) => {
-  /** @type {CoordinateConverter} */
-  let coordinateConverter
+  const TOMATO_CENTER_X = 1
+  const TOMATO_CENTER_Y = 0.5
+  const TOMATO_DIAMETER = 1
+
+  let gameView
+  const tomatoCenterPosition = { x: TOMATO_CENTER_X, y: TOMATO_CENTER_Y }
 
   /**
    * Called once by p5.js before the draw loop starts. Creates the canvas and initializes the coordinate converter.
    */
   p.setup = () => {
-    p.createCanvas(400, 400)
-    coordinateConverter = new CoordinateConverter(p.height)
+    // The GameView is created here to ensure that the p5.js canvas is initialized before the
+    // CoordinateConverter is instantiated.
+    gameView = new GameView(p)
   }
 
   /**
    * Called by p5.js once per animation frame to render the scene.
    */
   p.draw = () => {
-    const TOMATO_CENTER_X = 1
-    const TOMATO_CENTER_Y = 0.5
-    const TOMATO_DIAMETER = 1
-
-    drawBackground()
-    drawTitle()
-    drawTomato(TOMATO_CENTER_X, TOMATO_CENTER_Y, TOMATO_DIAMETER)
-    drawGround()
-  }
-
-  /**
-   * Draws the background of the canvas with a sky blue color.
-   */
-  const drawBackground = () => {
-    p.background(135, 206, 235)
-  }
-
-  /**
-   * Draws the sketch title centered near the top of the canvas.
-   */
-  const drawTitle = () => {
-    const TITLE_TEXT_TOP_DISPLACEMENT = 20
-    const TITLE = 'Ripe Tomato'
-
-    p.textAlign(p.CENTER, p.CENTER)
-    p.fill(0)
-    p.text(TITLE, p.width / 2, TITLE_TEXT_TOP_DISPLACEMENT)
-  }
-
-  /**
-   * Draws a tomato shape on the canvas.
-   *
-   * @param {number} centerPositionX The x-coordinate of the tomato's center in world space.
-   * @param {number} centerPositionY The y-coordinate of the tomato's center in world space.
-   * @param {number} diameter The diameter of the tomato, in world-space units.
-   */
-  const drawTomato = (centerPositionX, centerPositionY, diameter) => {
-    const TOMATO_COLOR = [255, 0, 0]
-
-    const { x, y } = coordinateConverter.worldToCanvas(centerPositionX, centerPositionY)
-    const diameterInPixels = diameter * CoordinateConverter.pixelsPerTomato
-
-    p.fill(TOMATO_COLOR)
-    p.ellipse(x, y, diameterInPixels, diameterInPixels)
-  }
-
-  /**
-   * Draws the ground on the canvas with a specific color and height.
-   */
-  const drawGround = () => {
-    const GROUND_COLOR = [34, 139, 34]
-    const GROUND_HEIGHT = 1
-
-    const { y } = coordinateConverter.worldToCanvas(0, 0)
-
-    p.fill(GROUND_COLOR)
-    p.rect(0, y, p.width, GROUND_HEIGHT * CoordinateConverter.pixelsPerTomato)
+    tomatoCenterPosition.x++
+    gameView.draw(tomatoCenterPosition, TOMATO_DIAMETER)
   }
 }
 
