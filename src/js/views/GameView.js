@@ -1,9 +1,15 @@
 import { CoordinateConverter } from '@/views/utils/CoordinateConverter.js'
 
 /**
+ * @typedef {import('p5').default} p5
+ * @typedef {import('@/models/Tomato.js').Tomato} Tomato
+ */
+
+/**
  * The view for the game.
  */
 export class GameView {
+  /** @type {p5} */
   #p
 
   /** @type {CoordinateConverter} */
@@ -12,14 +18,11 @@ export class GameView {
   /**
    * Creates a new GameView.
    *
-   * TODO: Fixa kommentaren som ska dokumentera varför DI med defaultvärde. För testning skull.
-   *
-   * @param {*} p The p5.js instance.
-   * @param {*} coordinateConverter The coordinate converter to use.
+   * @param {p5} p The p5.js instance.
    */
   constructor(p) {
     this.#p = p
-    // TODO: Canvas-objektet i p5 måste vara initierat
+    // The p5.js canvas must be initialized before creating the CoordinateConverter.
     p.createCanvas(400, 400)
     this.#coordinateConverter = new CoordinateConverter(p.height)
   }
@@ -27,8 +30,8 @@ export class GameView {
   /**
    * Draws the game.
    *
-   * @param {*} tomatoCenter
-   * @param {*} tomatoDiameter
+   * @param {Tomato} tomatoCenter The center position of the tomato in world space.
+   * @param {number} tomatoDiameter The diameter of the tomato, in world-space units.
    */
   draw = (tomatoCenter, tomatoDiameter) => {
     this.#drawBackground()

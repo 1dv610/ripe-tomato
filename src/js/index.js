@@ -6,8 +6,25 @@ import { GameView } from '@/views/GameView.js'
  * @param {p5} p The p5.js instance.
  */
 const sketch = (p) => {
+  /**
+   * The center x-coordinate of the tomato in world space.
+   *
+   * @type {number}
+   */
   const TOMATO_CENTER_X = 1
+
+  /**
+   * The center y-coordinate of the tomato in world space.
+   *
+   * @type {number}
+   */
   const TOMATO_CENTER_Y = 0.5
+
+  /**
+   * The diameter of the tomato in world space.
+   *
+   * @type {number}
+   */
   const TOMATO_DIAMETER = 1
 
   let gameView
