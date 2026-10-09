@@ -38,14 +38,23 @@ export class Game {
     return this.#groundHeight
   }
 
+  /**
+   * Checks if the game character is on the ground.
+   *
+   * @returns {boolean} True if the game character is on the ground, false otherwise.
+   */
   get #isGameCharacterOnGround() {
     // TODO: Implement logic to determine if the game character is on the ground based on its position and the ground height.
     return true
   }
 
+  /**
+   * Makes the game character jump if it is on the ground.
+   */
   jump = () => {
-    if (this.#isGameCharacterOnGround()) {
-      this.#gameCharacter.jump()
+    // TODO: Implement logic to make the game character jump if it is on the ground. This may involve updating the game character's position and velocity, and possibly triggering animations or sound effects.
+    if (this.#isGameCharacterOnGround) {
+      // this.#gameCharacter.jump()
     }
   }
 }
