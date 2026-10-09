@@ -5,7 +5,7 @@
  * diameter, also measured in tomatoes. The y-axis points up, with `y = 0`
  * resting on the ground.
  */
-export class Tomato {
+export class GameCharacter {
   /** @type {number} */
   #centerX
 
@@ -23,6 +23,7 @@ export class Tomato {
    * @param {number} diameter The diameter of the tomato, in world-space
    */
   constructor(centerX, centerY, diameter = 1) {
+    // TODO: Fixa validering så att centerX, centerY och diameter är nummer och att diameter är positivt.
     this.#centerX = centerX
     this.#centerY = centerY
     this.#diameter = diameter
