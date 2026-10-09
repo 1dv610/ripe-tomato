@@ -2,7 +2,7 @@ import { CoordinateConverter } from '@/views/utils/CoordinateConverter.js'
 
 /**
  * @typedef {import('p5').default} p5
- * @typedef {import('@/models/Tomato.js').Tomato} Tomato
+ * @typedef {import('@/models/GameCharacter.js').GameCharacter} GameCharacter
  */
 
 /**
@@ -12,6 +12,8 @@ export class GameView {
   /** @type {p5} */
   #p
 
+  #game
+
   /** @type {CoordinateConverter} */
   #coordinateConverter
 
@@ -19,9 +21,11 @@ export class GameView {
    * Creates a new GameView.
    *
    * @param {p5} p The p5.js instance.
+   * @param {Game} game The game to view.
    */
-  constructor(p) {
+  constructor(p, game) {
     this.#p = p
+    this.#game = game
     // The p5.js canvas must be initialized before creating the CoordinateConverter.
     p.createCanvas(400, 400)
     this.#coordinateConverter = new CoordinateConverter(p.height)
@@ -29,14 +33,11 @@ export class GameView {
 
   /**
    * Draws the game.
-   *
-   * @param {{x: number, y: number}} tomatoCenter The center position of the tomato in world space.
-   * @param {number} tomatoDiameter The diameter of the tomato, in world-space units.
    */
-  draw = (tomatoCenter, tomatoDiameter) => {
+  draw = () => {
     this.#drawBackground()
     this.#drawTitle()
-    this.#drawTomato(tomatoCenter.x, tomatoCenter.y, tomatoDiameter)
+    this.#drawTomato(this.#game.gameCharacter)
     this.#drawGround()
   }
 
@@ -62,15 +63,13 @@ export class GameView {
   /**
    * Draws a tomato shape on the canvas.
    *
-   * @param {number} centerPositionX The x-coordinate of the tomato's center in world space.
-   * @param {number} centerPositionY The y-coordinate of the tomato's center in world space.
-   * @param {number} diameter The diameter of the tomato, in world-space units.
+   * @param {GameCharacter} gameCharacter The game character to draw.
    */
-  #drawTomato = (centerPositionX, centerPositionY, diameter) => {
+  #drawTomato = (gameCharacter) => {
     const TOMATO_COLOR = [255, 0, 0]
 
-    const { x, y } = this.#coordinateConverter.worldToCanvas(centerPositionX, centerPositionY)
-    const diameterInPixels = diameter * CoordinateConverter.pixelsPerTomato
+    const { x, y } = this.#coordinateConverter.worldToCanvas(gameCharacter.centerX, gameCharacter.centerY)
+    const diameterInPixels = gameCharacter.diameter * CoordinateConverter.pixelsPerTomato
 
     this.#p.fill(TOMATO_COLOR)
     this.#p.ellipse(x, y, diameterInPixels, diameterInPixels)
@@ -81,11 +80,10 @@ export class GameView {
    */
   #drawGround = () => {
     const GROUND_COLOR = [34, 139, 34]
-    const GROUND_HEIGHT = 1
 
     const { y } = this.#coordinateConverter.worldToCanvas(0, 0)
 
     this.#p.fill(GROUND_COLOR)
-    this.#p.rect(0, y, this.#p.width, GROUND_HEIGHT * CoordinateConverter.pixelsPerTomato)
+    this.#p.rect(0, y, this.#p.width, this.#game.groundHeight * CoordinateConverter.pixelsPerTomato)
   }
 }

@@ -1,5 +1,9 @@
 import p5 from 'p5'
+import { GameCharacter } from '@/models/GameCharacter.js'
+import { Game } from '@/models/Game.js'
+import { GameController } from '@/controllers/GameController.js'
 import { GameView } from '@/views/GameView.js'
+
 /**
  * The main sketch for the p5.js application.
  *
@@ -28,23 +32,25 @@ const sketch = (p) => {
   const TOMATO_DIAMETER = 1
 
   let gameView
-  const tomatoCenterPosition = { x: TOMATO_CENTER_X, y: TOMATO_CENTER_Y }
+  let game
+  let gameController
 
   /**
    * Called once by p5.js before the draw loop starts. Creates the canvas and initializes the coordinate converter.
    */
   p.setup = () => {
+    game = new Game(new GameCharacter(TOMATO_CENTER_X, TOMATO_CENTER_Y, TOMATO_DIAMETER))
     // The GameView is created here to ensure that the p5.js canvas is initialized before the
     // CoordinateConverter is instantiated.
-    gameView = new GameView(p)
+    gameView = new GameView(p, game)
+    gameController = new GameController(game, gameView)
   }
 
   /**
    * Called by p5.js once per animation frame to render the scene.
    */
   p.draw = () => {
-    tomatoCenterPosition.x++
-    gameView.draw(tomatoCenterPosition, TOMATO_DIAMETER)
+    gameController.update()
   }
 }
 
