@@ -2,6 +2,7 @@ import { CoordinateConverter } from '@/views/utils/CoordinateConverter.js'
 
 /**
  * @typedef {import('p5').default} p5
+ * @typedef {import('@/models/Game.js').Game} Game
  * @typedef {import('@/models/GameCharacter.js').GameCharacter} GameCharacter
  */
 
@@ -12,6 +13,7 @@ export class GameView {
   /** @type {p5} */
   #p
 
+  /** @type {Game} */
   #game
 
   /** @type {CoordinateConverter} */

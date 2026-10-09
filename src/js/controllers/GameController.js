@@ -1,4 +1,10 @@
 /**
+ * @typedef {import('@/models/Game.js').Game} Game
+ * @typedef {import('@/views/GameView.js').GameView} GameView
+ * @typedef {import('@/views/Input.js').Input} Input
+ */
+
+/**
  * GameController is responsible for updating the game state and view based on user input.
  */
 export class GameController {
@@ -9,9 +15,9 @@ export class GameController {
   /**
    * Creates a new GameController.
    *
-   * @param {*} game
-   * @param {*} gameView
-   * @param {*} input
+   * @param {Game} game The game to control.
+   * @param {GameView} gameView The view for the game.
+   * @param {Input} input The input for the game.
    */
   constructor(game, gameView, input) {
     this.#game = game
