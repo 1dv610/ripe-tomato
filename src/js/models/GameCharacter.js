@@ -23,7 +23,14 @@ export class GameCharacter {
    * @param {number} diameter The diameter of the tomato, in world-space
    */
   constructor(centerX, centerY, diameter = 1) {
-    // TODO: Fixa validering så att centerX, centerY och diameter är nummer och att diameter är positivt.
+    // typeof NaN === 'number', and NaN <= 0 is false, so a typeof check lets NaN through.
+    if (!Number.isFinite(centerX) || !Number.isFinite(centerY) || !Number.isFinite(diameter)) {
+      throw new TypeError('centerX, centerY, and diameter must be finite numbers.')
+    }
+    if (diameter <= 0) {
+      throw new RangeError('diameter must be a positive number.')
+    }
+
     this.#centerX = centerX
     this.#centerY = centerY
     this.#diameter = diameter
