@@ -1,91 +1,117 @@
-import { CoordinateConverter } from '@/views/utils/CoordinateConverter.js'
+import { HudView } from '@/views/HudView.js'
+import { ObstacleView } from '@/views/ObstacleView.js'
+import { TomatoView } from '@/views/TomatoView.js'
 
 /**
  * @typedef {import('p5').default} p5
  * @typedef {import('@/models/Game.js').Game} Game
- * @typedef {import('@/models/GameCharacter.js').GameCharacter} GameCharacter
+ * @typedef {import('@/views/Camera.js').Camera} Camera
  */
 
 /**
- * The view for the game.
+ * The view for the game: decides what is drawn, and in which order.
+ *
+ * Reads the game's state every frame but never changes it. The only state it
+ * changes is its own presentation state: where the camera is.
  */
 export class GameView {
+  /** @type {number[]} */
+  static #SKY_COLOR = [135, 206, 235]
+
+  /** @type {number[]} */
+  static #GROUND_COLOR = [34, 139, 34]
+
+  /** @type {number[]} */
+  static #FLAG_COLOR = [255, 255, 255]
+
   /** @type {p5} */
   #p
 
   /** @type {Game} */
   #game
 
-  /** @type {CoordinateConverter} */
-  #coordinateConverter
+  /** @type {Camera} */
+  #camera
+
+  /** @type {TomatoView} */
+  #tomatoView
+
+  /** @type {ObstacleView} */
+  #obstacleView
+
+  /** @type {HudView} */
+  #hudView
 
   /**
-   * Creates a new GameView.
+   * Creates the game view. The canvas must already exist.
    *
    * @param {p5} p The p5.js instance.
-   * @param {Game} game The game to view.
+   * @param {Game} game The game to draw.
+   * @param {Camera} camera The camera to draw with, shared with the controller.
    */
-  constructor(p, game) {
+  constructor(p, game, camera) {
     this.#p = p
     this.#game = game
-    // The p5.js canvas must be initialized before creating the CoordinateConverter.
-    p.createCanvas(400, 400)
-    this.#coordinateConverter = new CoordinateConverter(p.height)
+    this.#camera = camera
+    this.#tomatoView = new TomatoView(p, camera)
+    this.#obstacleView = new ObstacleView(p, camera)
+    this.#hudView = new HudView(p)
   }
 
   /**
-   * Draws the game.
+   * Draws the game as it is now.
    */
   draw = () => {
-    this.#drawBackground()
-    this.#drawTitle()
-    this.#drawTomato(this.#game.gameCharacter)
+    this.#camera.follow(this.#game.tomato.x)
+
+    this.#drawSky()
     this.#drawGround()
+    // Pits are drawn after the ground, so they show as holes in it.
+    this.#game.obstacles.forEach(this.#obstacleView.draw)
+    this.#drawFinishLine(this.#game.finishX)
+    this.#tomatoView.draw(this.#game.tomato)
+    this.#hudView.draw(this.#game)
   }
 
   /**
-   * Draws the background of the canvas with a sky blue color.
+   * Fills the canvas with the sky.
    */
-  #drawBackground = () => {
-    this.#p.background(135, 206, 235)
+  #drawSky() {
+    this.#p.background(GameView.#SKY_COLOR)
   }
 
   /**
-   * Draws the sketch title centered near the top of the canvas.
+   * Draws the ground strip below `y = 0`.
    */
-  #drawTitle = () => {
-    const TITLE_TEXT_TOP_DISPLACEMENT = 20
-    const TITLE = 'Ripe Tomato'
+  #drawGround() {
+    const p = this.#p
+    const { groundY } = this.#camera
 
-    this.#p.textAlign(this.#p.CENTER, this.#p.CENTER)
-    this.#p.fill(0)
-    this.#p.text(TITLE, this.#p.width / 2, TITLE_TEXT_TOP_DISPLACEMENT)
+    p.push()
+    p.noStroke()
+    p.fill(GameView.#GROUND_COLOR)
+    p.rect(0, groundY, p.width, p.height - groundY)
+    p.pop()
   }
 
   /**
-   * Draws a tomato shape on the canvas.
+   * Draws a flag at the finish line.
    *
-   * @param {GameCharacter} gameCharacter The game character to draw.
+   * @param {number} finishX The x-coordinate of the finish line, in tomatoes.
    */
-  #drawTomato = (gameCharacter) => {
-    const TOMATO_COLOR = [255, 0, 0]
+  #drawFinishLine(finishX) {
+    const p = this.#p
+    const { x, y } = this.#camera.worldToCanvas(finishX, 0)
+    const poleHeight = this.#camera.toPixels(3)
+    const flagSize = this.#camera.toPixels(0.6)
 
-    const { x, y } = this.#coordinateConverter.worldToCanvas(gameCharacter.centerX, gameCharacter.centerY)
-    const diameterInPixels = gameCharacter.diameter * CoordinateConverter.pixelsPerTomato
-
-    this.#p.fill(TOMATO_COLOR)
-    this.#p.ellipse(x, y, diameterInPixels, diameterInPixels)
-  }
-
-  /**
-   * Draws the ground on the canvas with a specific color and height.
-   */
-  #drawGround = () => {
-    const GROUND_COLOR = [34, 139, 34]
-
-    const { y } = this.#coordinateConverter.worldToCanvas(0, 0)
-
-    this.#p.fill(GROUND_COLOR)
-    this.#p.rect(0, y, this.#p.width, this.#game.groundHeight * CoordinateConverter.pixelsPerTomato)
+    p.push()
+    p.stroke(0)
+    p.strokeWeight(3)
+    p.line(x, y, x, y - poleHeight)
+    p.noStroke()
+    p.fill(GameView.#FLAG_COLOR)
+    p.triangle(x, y - poleHeight, x, y - poleHeight + flagSize, x + flagSize * 1.4, y - poleHeight + flagSize / 2)
+    p.pop()
   }
 }
