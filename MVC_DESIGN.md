@@ -188,7 +188,7 @@ export class Game {
 
   restart = () => {
     const { obstacles, finishX } = this.#createLevel()
-    this.#tomato = new Tomato(0.5)
+    this.#tomato = new Tomato(Game.#START_X)
     this.#obstacles = obstacles
     this.#finishX = finishX
     this.#status = GameStatus.PLAYING
@@ -235,7 +235,7 @@ Några beslut som syns i koden:
 ```js
 export class Tomato {
   static #RUN_SPEED = 4 // tomatoes per second
-  static #JUMP_SPEED = 11 // tomatoes per second
+  static #JUMP_SPEED = 14 // tomatoes per second
   static #GRAVITY = 30 // tomatoes per second squared
 
   // #x, #y (center), #velocityY, #direction, #radius
@@ -264,7 +264,9 @@ export class Tomato {
 }
 ```
 
-Med de här konstanterna når tomatens underkant ungefär två tomater upp (`v² / 2g ≈ 2`), och ett hopp varar i ungefär `2v / g ≈ 0.73` sekunder. På den tiden hinner tomaten fram knappt tre tomater i full fart. Talen styr vilka hinder som går att klara och hör därför till spelreglerna.
+Med de här konstanterna når tomatens underkant drygt tre tomater upp (`v² / 2g ≈ 3.3`), och ett hopp varar i ungefär `2v / g ≈ 0.93` sekunder. På den tiden hinner tomaten fram knappt fyra tomater i full fart. Talen styr vilka hinder som går att klara och hör därför till spelreglerna.
+
+Först var hopphastigheten 11, vilket ger ett hopp som är ungefär två tomater högt. En skriptad genomspelning (`levels.test.js`) visade att en låda på 1 × 1 då bara gick att klara om spelaren hoppade inom ett fönster på ungefär 60 ms. Med 14 är fönstret ungefär fem gånger större. Testet kör hela banan med en enkel spelstrategi, så om fysiken eller banan ändras så att banan inte längre går att klara märks det direkt.
 
 ### Hinder: polymorfi i modellen
 
@@ -275,6 +277,8 @@ Varje hindertyp avgör själv vad kollision betyder för den. `Game` behöver d�
 | `Crate` | står still på marken | cirkeln överlappar lådans rektangel |
 | `Bird` | rör sig upp och ner längs en sinuskurva | cirkeln överlappar fågelns aktuella rektangel |
 | `Pit` | hål i marken | tomaten står på marken med centrum ovanför hålet |
+
+Metoderna i hinderhierarkin deklareras som vanliga prototypmetoder och inte som pilfunktionsfält, eftersom subklasserna ska kunna överskugga dem. Basklassen kastar ett `TypeError` om den instansieras direkt (`new.target === Obstacle`).
 
 ```js
 export class Obstacle {
@@ -341,8 +345,8 @@ classDiagram
     }
 
     class Camera {
-        +number pixelsPerTomato
         -number offsetX
+        +number groundY
         +follow(worldX)
         +worldToCanvas(x, y) CanvasCoordinates
         +canvasToWorld(x, y) WorldCoordinates
@@ -424,7 +428,7 @@ export class Camera {
   static #GROUND_HEIGHT_PIXELS = 60
   static #LEAD_PIXELS = 200 // where the followed position appears, from the left edge
 
-  #canvasHeight
+  #canvasHeight // validated in the constructor
   #offsetX = 0 // world x shown at the left edge
 
   follow = (worldX) => {
@@ -433,15 +437,16 @@ export class Camera {
 
   worldToCanvas = (x, y) => ({
     x: (x - this.#offsetX) * Camera.#PIXELS_PER_TOMATO,
-    y: this.#groundY - y * Camera.#PIXELS_PER_TOMATO,
+    y: this.groundY - y * Camera.#PIXELS_PER_TOMATO,
   })
 
   canvasToWorld = (x, y) => ({
     x: x / Camera.#PIXELS_PER_TOMATO + this.#offsetX,
-    y: (this.#groundY - y) / Camera.#PIXELS_PER_TOMATO,
+    y: (this.groundY - y) / Camera.#PIXELS_PER_TOMATO,
   })
 
-  get #groundY() {
+  // Public, because GameView draws the ground strip from it.
+  get groundY() {
     return this.#canvasHeight - Camera.#GROUND_HEIGHT_PIXELS
   }
 }
@@ -474,6 +479,7 @@ classDiagram
         +number direction
         +press(key)
         +release(key)
+        +reset()
         +consumeJump() boolean
     }
 
@@ -558,7 +564,11 @@ export class GameController {
   static #DEAD_ZONE = 0.25 // tomatoes
 
   update = () => {
-    if (this.#keyboard.consumeJump() || this.#pointer.consumePress()) {
+    // Consume both requests every frame, so a stale one is never applied later.
+    const jumpRequested = this.#keyboard.consumeJump()
+    const pressRequested = this.#pointer.consumePress()
+
+    if (jumpRequested || pressRequested) {
       if (this.#game.isOver) this.#game.restart()
       else this.#game.jump()
     }
@@ -574,6 +584,8 @@ export class GameController {
   }
 }
 ```
+
+Båda förfrågningarna förbrukas innan de jämförs. Med `consumeJump() || consumePress()` skulle `||` kortsluta: ett klick i samma frame som ett tangenttryck skulle ligga kvar och ge ett andra hopp, eller en omstart, i nästa frame.
 
 Det är kontrollern som avgör att samma avsikt betyder "hoppa" medan spelet pågår och "börja om" när det är slut. Det är en regel för gränssnittet och inte en spelregel, och därför ligger den inte i modellen.
 
@@ -601,6 +613,9 @@ const sketch = (p) => {
     game = new Game(createFirstLevel)
     view = new GameView(p, game, camera)
     controller = new GameController(game, camera, keyboard, pointer)
+
+    // Keys released while the window is out of focus never send a release event.
+    window.addEventListener('blur', keyboard.reset)
   }
 
   // Returning false makes p5 call preventDefault(), so Space doesn't scroll the page.
@@ -878,7 +893,7 @@ describe('Tomato', () => {
 
 ## Öppna frågor
 
-- **Pekskärmar.** Musen hanteras via p5:s mushändelser. Om touch ska stödjas fullt ut kan `PointerInput` matas från `touchStarted` och `touchEnded` på samma sätt.
-- **Tangenter som fastnar.** Om fönstret tappar fokus medan en tangent hålls nere kommer ingen `keyReleased`. En `reset()` på `KeyboardInput` som anropas vid `blur` löser det.
+- **Pekskärmar.** p5 2.x bygger på pointer events, så `mousePressed`, `mouseDragged` och `mouseReleased` anropas även vid touch. Det har inte provats på en riktig pekskärm.
+- **Tangenter som fastnar.** Om fönstret tappar fokus medan en tangent hålls nere kommer ingen `keyReleased`. Därför anropar `index.js` `keyboard.reset()` när fönstret får `blur`.
 - **Flera banor och menyer.** Se `Scene`-resonemanget under [Fler lager?](#fler-lager).
 - **Ljud och partiklar.** Det är presentation och hör hemma i vyn. Om vyn behöver veta *att* något hände, inte bara *hur* det ser ut nu, kan modellen exponera händelser som `game.events` som vyn läser och tömmer varje frame. Modellen behöver ändå inte känna till vyn.
