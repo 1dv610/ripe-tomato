@@ -78,6 +78,9 @@ const sketch = (p) => {
     return false
   }
 
+  // Despite their names, p5 2.x calls the mouse* hooks for every pointer event (mouse, touch and
+  // pen) and has no pointer* or touch* hooks. Check event.pointerType to tell them apart.
+
   /**
    * Called by p5.js when the mouse button is pressed, or a touch starts.
    */
