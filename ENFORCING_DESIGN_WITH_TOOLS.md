@@ -130,7 +130,30 @@ Det betyder inte att granskningen blir onödig. Den *avlastas*. Det som kan uttr
 
 ## När kontroller i körande kod är rätt
 
-Resonemanget ovan betyder inte att kontroller i körande kod alltid är fel. De är rätt i tre situationer.
+Resonemanget ovan betyder inte att kontroller i körande kod alltid är fel. För att se när de är rätt behövs ett begrepp som resten av texten bygger på.
+
+> [!NOTE]
+> **Förtroendegräns** (*trust boundary*)
+>
+> En förtroendegräns är en plats i ett system där data eller anrop går från något du inte kontrollerar till något du kontrollerar. På den ena sidan har bara din egen kod varit inblandad, och där kan du lita på det koden garanterar, till exempel att ett värde är ett ändligt tal eller att en användare redan är inloggad. På den andra sidan kan vad som helst ha hänt.
+>
+> "Förtroende" betyder här inte att någon är ärlig eller oärlig, utan att du har kontroll över vad som hänt med datan. Även en välvillig användare kan skicka något oväntat, och en fientlig kan skicka vad som helst.
+>
+> Typiska förtroendegränser i en webbapplikation:
+>
+> - en HTTP-request som når servern: `req.body`, `req.params`, query-strängar, cookies och headers
+> - data som ska visas i webbläsaren och som andra användare har skapat, även när den kommer från den egna servern
+> - parametrar i URL:en, meddelanden via `postMessage` och innehåll i `localStorage`, som användaren kan ändra
+> - svar från tjänster och API:er som någon annan driver
+> - en publik funktion i ett bibliotek, eftersom någon annans kod anropar den
+>
+> Begreppet kommer från hotmodellering, där man ritar systemet som ett flöde av data och markerar var gränserna går. Det är vid de markeringarna som hoten finns.
+
+Förtroendegränsen är intressant av ett enkelt skäl: **det är där garantierna upphör.** Bakom gränsen räcker det att verktyg och tester kontrollerar den egna koden, eftersom ingen annan kod når dit. Vid gränsen finns inget verktyg som kan veta vad som kommer att skickas, så där måste datan kontrolleras när programmet körs, varje gång.
+
+Gränsen avgör därför var en kontroll i körande kod är värd sin kostnad. Missas en kontroll vid gränsen blir följden ofta en säkerhetsbrist: injektion, XSS eller att någon kan ändra data de inte ska få ändra. Läggs samma kontroll i stället överallt bakom gränsen blir följden ceremoni: kod som kontrollerar det som redan är kontrollerat och som gör programmet svårare att läsa. Den som vet var gränserna går vet alltså både var kontrollerna måste finnas och var de kan utelämnas.
+
+Kontroller i körande kod är därför rätt i tre situationer.
 
 **Vid förtroendegränser.** Indata från användare, filer och nätverk kan vara vad som helst, och ingen linter kan veta vad en användare skriver eller vad en server skickar. Sådant måste valideras när programmet körs. Om Ripe Tomato en dag hämtar banor från en server, ska JSON-datat valideras innan det blir domänobjekt.
 
