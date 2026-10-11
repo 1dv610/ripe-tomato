@@ -50,7 +50,23 @@ Två regler gör separationen tydlig:
 
 ### Reglerna kontrolleras av lintern
 
-Beroenderiktningen står inte bara i det här dokumentet. Den kontrolleras i `eslint.config.js` med ESLints inbyggda regler, utan några extra beroenden:
+> [!NOTE]
+> **Begrepp**
+>
+> - **Beroende:** ett *källkodsberoende*, alltså en `import`. Att `views/` beror på `models/` betyder att vyns kod känner till modellen och inte kan kompileras eller köras utan den.
+> - **Beroenderiktning:** vilket håll beroendena pekar. Pilarna i diagrammet ovan är beroenden.
+> - **Beroende är inte samma sak som dataflöde.** Data flyttas från modellen till vyn varje frame, men beroendepilen pekar från vyn till modellen, eftersom det är vyn som känner till modellen. Modellen vet inte att någon läser den.
+> - **Beroenderegeln** (*the Dependency Rule*, Robert C. Martin, *Clean Architecture*): beroenden ska peka mot det som är stabilt och bär reglerna, här modellen. Det som ändras ofta, som presentation och input, får bero på det stabila, men aldrig tvärtom.
+> - **Arkitekturerosion:** att strukturen långsamt bryts ned genom små genvägar ("bara en import av `p5` i modellen"), där var och en verkar ofarlig.
+> - **Fitness function** (Ford, Parsons och Kua, *Building Evolutionary Architectures*): en automatisk kontroll av en egenskap hos arkitekturen. Lintreglerna nedan är sådana kontroller.
+
+En arkitekturregel som bara står i ett dokument följs så länge alla minns den och granskningen upptäcker avstegen. Därför kontrolleras beroenderiktningen också av lintern. Det har tre fördelar:
+
+- **Snabb återkoppling.** Felet syns i editorn medan man skriver, inte i en granskning dagar senare, eller aldrig.
+- **Regeln förklarar sig själv.** Varje regel har ett felmeddelande som säger *varför* den finns, till exempel att modellen ska kunna köras i Node. Dokumentationen syns alltså där överträdelsen sker.
+- **Nästan ingen kostnad.** Ingenting körs när spelet körs, och reglerna är några rader konfiguration med ESLints inbyggda regler, utan extra beroenden.
+
+Reglerna i `eslint.config.js`:
 
 | Mapp | Regel | Förbjuder |
 | --- | --- | --- |
@@ -68,6 +84,12 @@ Reglerna för globala variabler och egenskaper går längre än importerna. De h
 Importreglerna kan inte skilja på att läsa modellen och att ändra den, eftersom vyn har rätt att importera modellen. Därför matchar en `no-restricted-syntax`-regel anrop av modellens kommandon *på namn* med AST-selektorn `CallExpression > MemberExpression.callee[property.type='Identifier'][property.name=/^(jump|steer|restart|update)$/]`. `this.#game.jump()` fångas, men `this.#camera.follow(...)` och privata metoder (`this.#jump()`) gör det inte. Regeln är en heuristik och inte en typkontroll: listan måste hållas i takt med kommandona i `Game`, och en vy som av andra skäl anropar en metod som heter `update` får ett falskt larm. Ett eget ESLint-plugin skulle kunna vara mer exakt, men det vore mer kod att underhålla än risken motiverar.
 
 Typimporter i JSDoc (`@typedef {import('@/views/Camera.js').Camera}`) kontrolleras inte heller, eftersom ESLint inte tolkar kommentarer. De är dessutom bara typinformation och påverkar inte vad som körs.
+
+> [!TIP]
+> **Prova själv.** Lägg till `import p5 from 'p5'` överst i `src/js/models/Tomato.js`. Editorn markerar raden direkt, och `npm run lint` misslyckas med meddelandet att modellen ska kunna köras utan gränssnittet. Prova sedan `this.#game.jump()` i `GameView.draw()`, eller `Math.random()` i `Bird.update()`. Ta bort ändringarna efteråt.
+
+> [!IMPORTANT]
+> Lintern skyddar bara det den körs på. `npm run lint` och editorn täcker utvecklingen, men för att en överträdelse inte ska kunna checkas in behöver kontrollen också köras i CI, eller i en pre-commit-hook. Repot har ingen CI-konfiguration i dag. En regel kan dessutom stängas av med en `eslint-disable`-kommentar, så granskningen behövs fortfarande.
 
 ## Katalogstruktur och namn
 
