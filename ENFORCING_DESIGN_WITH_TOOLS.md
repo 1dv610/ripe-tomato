@@ -2,7 +2,7 @@
 
 Den här texten handlar om var ett designbeslut ska upprätthållas. Ett beslut som "modellen får inte bero på vyn" kan stå i ett dokument, byggas in i koden som skydd som körs varje gång programmet körs, eller kontrolleras av ett verktyg innan koden ens har körts. Valet påverkar hur lätt koden är att läsa, vad den kostar att köra och om regeln faktiskt följs. Därför hör frågan hemma i en kurs om mjukvarukvalitet: en regel som ingen kontrollerar är en önskan, och ett skydd som gör koden svårare att läsa kan kosta mer än det ger.
 
-Exemplen kommer från Ripe Tomato, där arkitekturen beskrivs i [MVC_DESIGN.md](MVC_DESIGN.md). Avsnittet om andra språk visar att samma fråga får olika svar beroende på vad språket självt kan uttrycka.
+Exemplen kommer från Ripe Tomato, där arkitekturen beskrivs i [MVC_DESIGN.md](MVC_DESIGN.md). Ett eget avsnitt visar hur slutsatserna ändras i en Express-app, den MVC-variant som jämförs med spelloopen i [REFLECTION_SESSION_2.md](REFLECTION_SESSION_2.md). Avsnittet om andra språk visar att samma fråga får olika svar beroende på vad språket självt kan uttrycka.
 
 ## Problemet: regler som bara finns i ett dokument
 
@@ -140,6 +140,77 @@ Resonemanget ovan betyder inte att kontroller i körande kod alltid är fel. De 
 
 Ripe Tomato har exempel på båda sidor av gränsen. `Tomato`s konstruktor kontrollerar att argumenten är ändliga tal och kastar ett `TypeError` annars. Kontrollen körs en gång per objekt och fångar felet där det uppstår, i stället för som ett `NaN` som dyker upp långt senare i ritkoden. Det är billigt och ger mycket. `Game.update(dt)` kontrollerar på samma sätt att `dt` är ett giltigt tal, men den kontrollen körs varje frame, och den enda som anropar metoden är spelets egen loop. Kostnaden är försumbar, men den är svårare att motivera. Den hade kunnat ersättas med ett test av loopen.
 
+## Sammanhanget avgör: spelloop jämfört med Express
+
+Slutsatserna om Ripe Tomato gäller Ripe Tomato. Principen är allmän: kontrollera varje regel på den tidigaste nivå som faktiskt fungerar, och lägg kontroller i körande kod vid förtroendegränserna. Men var förtroendegränserna går beror på vilken sorts applikation det är. I [REFLECTION_SESSION_2.md](REFLECTION_SESSION_2.md) jämförs MVC i en spelloop med MVC i en Express-app som renderar HTML på servern. Samma jämförelse ger olika svar på frågorna i den här texten.
+
+### Ripe Tomato har nästan inga förtroendegränser
+
+Spelet körs helt i webbläsaren. Den enda indatan är tangentbord och mus, och den kan bara bli några få kända avsikter. Det finns inga hemligheter och ingen data som tillhör någon annan.
+
+Klienten tillhör dessutom användaren. Den som vill fuska kan öppna webbläsarens utvecklarverktyg och ändra hopphastigheten. Inget skydd i klientkoden kan stoppa det. Skydd i körande kod kan alltså bara skydda mot programmerarens egna misstag, och sådana misstag fångas billigare av verktyg. Därför blir slutsatsen för Ripe Tomato så tydlig. Det enda skydd som verkligen behövs, att en highscore inte är fuskad, måste ligga på en server.
+
+### I en Express-app korsar varje request en förtroendegräns
+
+En Express-app tar emot `req.body`, `req.params`, query-strängar och cookies från vem som helst. Då ändras flera av svaren:
+
+| Fråga | Ripe Tomato | Express med serverrenderade vyer |
+| --- | --- | --- |
+| Förtroendegränser | nästan inga | varje request |
+| Kontroller i körande kod | undantag | krav vid gränsen, till exempel med zod, joi eller express-validator |
+| Vad en läcka betyder | en vy *kan* anropa `jump()`, vilket är ett designfel | ett modellobjekt med `passwordHash` skickas till klienten, vilket är ett säkerhetsfel |
+| DTO:er | en andra beskrivning av samma form, mest underhåll | en säkerhetsåtgärd, både för utdata och för indata |
+| Kostnaden för kopior | sextio gånger per sekund, i en inre loop | en gång per request, försumbart jämfört med databasanropen |
+| Vydata | vyn läser modellen direkt | `res.render(view, viewData)` bygger redan ett vydataobjekt, eftersom mallen är kortlivad |
+| Fler lager | inte motiverat, eftersom spelet saknar I/O | ofta motiverat, eftersom databas och I/O finns från början |
+| Klocka och slump injiceras i modellen | för determinism och uppspelning | främst för testbarhet |
+
+### En DTO är ett designval i spelet men ett säkerhetskrav på servern
+
+Det är den viktigaste skillnaden. I Ripe Tomato valdes DTO:er bort, och det var rätt där. Men den som drar slutsatsen att DTO:er i allmänhet är onödiga, och sedan skickar modellobjekt rakt ut från en Express-app, har lärt sig fel sak:
+
+```js
+// Sends every field of the document to the client, including passwordHash.
+res.json(await User.findById(req.params.id))
+
+// Sends exactly the fields the client may see.
+const user = await User.findById(req.params.id)
+res.json({ id: user.id, name: user.name })
+```
+
+Samma sak gäller åt andra hållet. `User.create(req.body)` låter klienten sätta vilket fält som helst, till exempel `isAdmin`. Det kallas *mass assignment*. Indata ska valideras och plockas fält för fält innan den når modellen. OWASP räknar båda felen, för mycket data ut och okontrollerad data in, till samma risk bland de vanligaste API-riskerna: *API3:2023 Broken Object Property Level Authorization*.
+
+Ingen linter kan avgöra vilka fält som är känsliga. Här är en kontroll i körande kod, i form av en explicit projektion eller ett valideringsschema, rätt nivå.
+
+### Mallmotorn är en kontroll på nivå 1
+
+I en Express-app är vyerna ofta mallar och inte JavaScript, och ESLint kontrollerar dem inte. Då blir valet av mallmotor en arkitekturfråga. En logikfattig mallmotor som Handlebars upprätthåller regeln "vyn läser bara" genom själva språket: mallen kan visa värden, iterera och anropa registrerade hjälpfunktioner, men inte köra godtycklig kod. Sedan version 4.6 blockerar Handlebars dessutom åtkomst till egenskaper på objektens prototyp som standard. EJS tillåter däremot godtycklig JavaScript i mallen, och då vilar regeln återigen på konvention. Det är samma resonemang som i språkjämförelsen nedan, tillämpat på mallspråk: ju mer språket kan uttrycka, desto mindre behöver kontrolleras på annat sätt.
+
+### Det som inte ändras
+
+Beroenderegeln och tekniken för att kontrollera den är desamma. I en Express-app ska modellen inte känna till HTTP, och det kontrolleras med samma regel som i Ripe Tomato:
+
+```js
+{
+  files: ['src/models/**/*.js'],
+  rules: {
+    'no-restricted-imports': [
+      'error',
+      {
+        patterns: [
+          {
+            group: ['express', '**/controllers/**', '**/routes/**', '**/views/**'],
+            message: 'The model must not know about HTTP. Controllers translate requests into model calls.',
+          },
+        ],
+      },
+    ],
+  },
+},
+```
+
+Arbetsfördelningen mellan verktyg och granskning är också densamma. Skillnaden är att en Express-app har fler regler som *inte* kan kontrolleras av verktyg, eftersom de handlar om vilken data som är känslig och vem som får se den. Det gör granskningen viktigare där, inte mindre viktig.
+
 ## Språken gör olika mycket av jobbet
 
 Hur mycket som behöver kontrolleras av verktyg beror på hur mycket språket självt kan uttrycka. Nedan visas samma två regler i några olika språk: att modellen inte får bero på vyn, och att vyn inte får ändra det den läser.
@@ -267,7 +338,7 @@ Den sista punkten är skälet till att granskningen behövs även när alla meka
 
 ## Sammanfattning
 
-Ett designbeslut kan upprätthållas på flera nivåer: i språket, i byggstrukturen, med statisk analys, med tester, med kontroller i körande kod eller genom konvention. Ju tidigare nivå, desto snabbare återkoppling och desto mindre kod som körs i onödan. Kontroller i körande kod är rätt vid förtroendegränser, i bibliotek och när säkerhet står på spel, men inte som ett allmänt skydd mot den egna kodens misstag. Hur mycket som behöver kontrolleras av verktyg beror på språket. I JavaScript, där språket ger minst hjälp, ger verktygen mest.
+Ett designbeslut kan upprätthållas på flera nivåer: i språket, i byggstrukturen, med statisk analys, med tester, med kontroller i körande kod eller genom konvention. Ju tidigare nivå, desto snabbare återkoppling och desto mindre kod som körs i onödan. Kontroller i körande kod är rätt vid förtroendegränser, i bibliotek och när säkerhet står på spel, men inte som ett allmänt skydd mot den egna kodens misstag. Var förtroendegränserna går beror på sammanhanget. I ett spel som körs helt i klienten finns de knappt, medan de i en Express-app finns vid varje request. Därför kan samma princip leda till att DTO:er väljs bort i det ena fallet och krävs i det andra. Hur mycket som behöver kontrolleras av verktyg beror på språket. I JavaScript, där språket ger minst hjälp, ger verktygen mest.
 
 Två kontrollfrågor fungerar oavsett språk:
 
