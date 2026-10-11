@@ -93,7 +93,7 @@ Typimporter i JSDoc (`@typedef {import('@/views/Camera.js').Camera}`) kontroller
 > **Prova själv.** Lägg till `import p5 from 'p5'` överst i `src/js/models/Tomato.js`. Editorn markerar raden direkt, och `npm run lint` misslyckas med meddelandet att modellen ska kunna köras utan gränssnittet. Prova sedan `this.#game.jump()` i `GameView.draw()`, eller `Math.random()` i `Bird.update()`. Ta bort ändringarna efteråt.
 
 > [!IMPORTANT]
-> Lintern skyddar bara det den körs på. `npm run lint` och editorn täcker utvecklingen, men för att en överträdelse inte ska kunna checkas in behöver kontrollen också köras i CI, eller i en pre-commit-hook. Repot har ingen CI-konfiguration i dag. En regel kan dessutom stängas av med en `eslint-disable`-kommentar, så granskningen behövs fortfarande.
+> Lintern skyddar bara det den körs på. `npm run lint` och editorn täcker utvecklingen. Pipelinen i `.github/workflows/ci.yml` kör lint, formateringskontroll, tester och bygge vid varje push till `main` och i varje pull request. Först när jobbet görs till en *required status check* i GitHubs branch protection för `main` kan en pull request som bryter mot reglerna inte slås ihop. Det är en inställning i repot och inte en fil. En regel kan dessutom stängas av med en `eslint-disable`-kommentar, så granskningen behövs fortfarande.
 
 ## Katalogstruktur och namn
 
@@ -980,7 +980,7 @@ describe('Tomato', () => {
 ## Öppna frågor
 
 - **Pekskärmar.** p5 2.x bygger på pointer events, så `mousePressed`, `mouseDragged` och `mouseReleased` anropas även vid touch. Det har inte provats på en riktig pekskärm.
-- **CI.** Lintern och testerna körs bara lokalt. Om de körs i en pipeline kan kod som bryter mot reglerna inte slås ihop.
+- **Branch protection.** Pipelinen finns, men den stoppar ingenting förrän jobbet görs till en obligatorisk statuskontroll för `main` i GitHub.
 - **Fast tidssteg.** Behövs först om spelomgångar ska spelas upp exakt igen, till exempel för att verifiera highscores. Se [Kompromisser](#kompromisser).
 - **Flera banor och menyer.** Se `Scene`-resonemanget under [Fler lager?](#fler-lager).
 - **Ljud och partiklar.** Det är presentation och hör hemma i vyn. Om vyn behöver veta *att* något hände, inte bara *hur* det ser ut nu, kan modellen exponera händelser som `game.events` som vyn läser och tömmer varje frame. Modellen behöver ändå inte känna till vyn.
