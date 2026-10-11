@@ -58,13 +58,16 @@ Beroenderiktningen står inte bara i det här dokumentet. Den kontrolleras i `es
 | `models/` | `no-restricted-globals` | `window`, `document`, `navigator`, `localStorage`, `sessionStorage`, `fetch` |
 | `models/` | `no-restricted-properties` | `Math.random`, `Date.now`, `performance.now` |
 | `views/` | `no-restricted-imports` | `controllers/`, `index.js` |
+| `views/` | `no-restricted-syntax` | anrop av `jump`, `steer`, `restart` och `update` på ett objekt |
 | `controllers/` | `no-restricted-imports` | `p5`, `views/` utom `views/Camera.js`, `index.js` |
 
 Mönstren är i gitignore-stil (`**/views/**`) och fångar därför både alias-importer (`@/views/GameView.js`) och relativa (`../views/GameView.js`). Undantaget för `Camera` uttrycks med negation (`!**/views/Camera.js`).
 
 Reglerna för globala variabler och egenskaper går längre än importerna. De håller modellen fri från webbläsaren, så att den kan köras i Node, och fri från dolda källor till tid och slump, så att den är deterministisk. Tid kommer via `update(dt)`, och slump ska injiceras som en funktion.
 
-Lintern kontrollerar *importer*, inte anrop. En vy som anropar `game.jump()` upptäcks inte, eftersom vyn har rätt att importera och läsa modellen. Typimporter i JSDoc (`@typedef {import('@/views/Camera.js').Camera}`) kontrolleras inte heller, eftersom ESLint inte tolkar kommentarer. De är dessutom bara typinformation och påverkar inte vad som körs.
+Importreglerna kan inte skilja på att läsa modellen och att ändra den, eftersom vyn har rätt att importera modellen. Därför matchar en `no-restricted-syntax`-regel anrop av modellens kommandon *på namn* med AST-selektorn `CallExpression > MemberExpression.callee[property.type='Identifier'][property.name=/^(jump|steer|restart|update)$/]`. `this.#game.jump()` fångas, men `this.#camera.follow(...)` och privata metoder (`this.#jump()`) gör det inte. Regeln är en heuristik och inte en typkontroll: listan måste hållas i takt med kommandona i `Game`, och en vy som av andra skäl anropar en metod som heter `update` får ett falskt larm. Ett eget ESLint-plugin skulle kunna vara mer exakt, men det vore mer kod att underhålla än risken motiverar.
+
+Typimporter i JSDoc (`@typedef {import('@/views/Camera.js').Camera}`) kontrolleras inte heller, eftersom ESLint inte tolkar kommentarer. De är dessutom bara typinformation och påverkar inte vad som körs.
 
 ## Katalogstruktur och namn
 

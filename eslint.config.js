@@ -105,6 +105,16 @@ export default [
           ],
         },
       ],
+      // Imports can't tell reading the model from changing it, so calls to Game's commands are
+      // matched by name. Keep the list in sync with the commands Game exposes.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression > MemberExpression.callee[property.type='Identifier'][property.name=/^(jump|steer|restart|update)$/]",
+          message: 'Views only read the model. Commands are sent by the controller, and time is advanced by the loop.',
+        },
+      ],
     },
   },
   {
