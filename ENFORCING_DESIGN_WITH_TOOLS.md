@@ -16,6 +16,13 @@ Den första är att **lita på konvention**. Regeln skrivs ned och förväntas f
 
 Den andra är att **bygga in skyddet i koden**. Om vyn inte ska kunna ändra modellen, får den en kopia i stället för modellen. Om ett objekt inte ska ändras, fryses det med `Object.freeze`. Det fungerar, men skyddet körs varje gång programmet körs, och det gör koden längre. I Ripe Tomato skulle det betyda att modellens tillstånd kopieras till nya objekt sextio gånger per sekund. Kostnaden i processortid är liten. Den stora kostnaden är underhållet: varje fält beskrivs nu på två ställen, i modellen och i kopian, och de två måste hållas i takt med varandra.
 
+> [!NOTE]
+> **Kontroller i körande kod och defensiv programmering**
+>
+> Med *kontroller i körande kod* menas i den här texten kod som finns i programmet för att upptäcka eller förhindra fel medan programmet körs. Det kan vara att validera ett argument och kasta ett fel, att kopiera ett objekt innan det lämnas ut så att mottagaren inte kan ändra originalet (en *defensiv kopia*), eller att frysa ett objekt med `Object.freeze`. Kontrollen finns med i produktionskoden och körs varje gång koden körs.
+>
+> *Defensiv programmering* är hållningen att skriva sådana kontroller för säkerhets skull, även mot anrop från den egna koden. Hållningen är rimlig vid gränser mot omvärlden. Inne i den egna koden leder den ofta till kod som kontrollerar samma sak flera gånger och som är svårare att läsa än den behöver vara.
+
 Det finns ett tredje alternativ: att låta ett verktyg kontrollera regeln.
 
 ## Var en regel kan kontrolleras
@@ -36,6 +43,8 @@ flowchart LR
 | 5. Kontroller i körande kod | när koden körs | ja, varje gång | validering, defensiva kopior, `Object.freeze` |
 | 6. Konvention och granskning | om någon ser det | nej | en regel i ett dokument |
 
+*Statisk analys* betyder att ett verktyg granskar källkoden utan att köra den. En linter som ESLint är den vanligaste formen. Den läser koden, letar efter mönster som bryter mot konfigurerade regler och rapporterar dem, ofta direkt i editorn medan koden skrivs.
+
 Tumregeln är att lägga kontrollen så tidigt i kedjan som språket och verktygen tillåter. Ju tidigare nivå, desto snabbare återkoppling och desto mindre kod som körs i onödan. Nivå 6 behövs alltid, men för det som verktyg inte kan se: om namnen är bra, om ansvaret ligger rätt och om designen håller för nästa krav.
 
 Vilka nivåer som finns att välja på beror på språket. JavaScript har nästan ingenting på nivå 1 och 2, och det förklarar varför frestelsen att skriva defensiv kod är så stor just där.
@@ -44,13 +53,24 @@ Vilka nivåer som finns att välja på beror på språket. JavaScript har nästa
 
 ### Får vyn ändra modellen?
 
-`Game` lämnar ut sina objekt som referenser. `GameView` får tillgång till `game.tomato` för att kunna rita tomaten, och därmed kan den tekniskt sett anropa `game.tomato.jump()`. Det är den sortens läcka som brukar kallas *privacy leak*. Fem sätt att hantera den diskuterades:
+`Game` lämnar ut sina objekt som referenser. `GameView` får tillgång till `game.tomato` för att kunna rita tomaten, och därmed kan den tekniskt sett anropa `game.tomato.jump()`. Det är den sortens läcka som brukar kallas *privacy leak*.
+
+> [!NOTE]
+> **DTO och projektion**
+>
+> En *DTO* (*data transfer object*) är ett enkelt objekt som bara bär data, utan metoder och utan regler. Det används för att flytta data över en gräns: från modellen till en vy, från servern till klienten eller från en request in i programmet. DTO:n innehåller exakt de fält som mottagaren behöver och inget annat.
+>
+> Att bygga en DTO från ett modellobjekt kallas här att *projicera* det: man väljer ut vilka fält som ska följa med. Det är projektionen som gör en DTO användbar som skydd. Ett fält som inte väljs ut kan inte läcka ut, och ett fält i en request som inte väljs ut kan inte ändra modellen.
+>
+> Priset är att samma form beskrivs två gånger, i modellen och i DTO:n, och att de två måste hållas i takt med varandra.
+
+Fem sätt att hantera läckan diskuterades:
 
 | Alternativ | Nivå | Skyddar | Kostar |
 | --- | --- | --- | --- |
 | Kopior (DTO:er) av modellens tillstånd varje frame | 5 | helt | en andra beskrivning av varje form, mappningskod, nya objekt varje frame |
 | `Object.freeze` eller en skrivskyddad `Proxy` | 5 | helt, men först när koden körs | körtid, och fel som upptäcks sent |
-| Destrukturering i vyernas parametrar, `draw({ x, y, radius })` | 1–3 | lövvyerna, eftersom de bara får värden | lite, men `GameView` har fortfarande `game` |
+| Destrukturering i vyernas parametrar, `draw({ x, y, radius })` | 1–3 | vyer som bara ritar ett objekt, som `TomatoView`, eftersom de bara får värden | lite, men `GameView` har fortfarande `game` |
 | Ett eget ESLint-plugin som förstår typer | 3 | nästan helt | ett eget paket med regelkod och tester att underhålla |
 | En `no-restricted-syntax`-regel i den befintliga konfigurationen | 3 | anrop av modellens kommandon från vyer, matchade på namn | några rader konfiguration |
 
@@ -74,9 +94,16 @@ Valet blev det sista alternativet. Det ger inte ett fullständigt skydd. Regeln 
 },
 ```
 
-Selektorn är en AST-selektor, ungefär som CSS för syntaxträdet. Den matchar ett anrop vars mottagare är ett objekt och vars metodnamn är ett av modellens kommandon. `this.#game.jump()` fångas, medan `this.#camera.follow(...)` och privata metoder som `this.#jump()` passerar.
+ESLint läser inte koden som text utan som ett *abstrakt syntaxträd* (AST), där varje del av koden, som ett anrop, ett namn eller en egenskap, är en nod med en typ. Selektorn väljer noder i det trädet, ungefär som en CSS-selektor väljer element i HTML. Den matchar ett anrop vars mottagare är ett objekt och vars metodnamn är ett av modellens kommandon. `this.#game.jump()` fångas, medan `this.#camera.follow(...)` och privata metoder som `this.#jump()` passerar.
 
 ### Beroenderiktningen
+
+> [!NOTE]
+> **Beroende och beroenderiktning**
+>
+> En modul *beror på* en annan om den importerar den, alltså om den inte kan köras utan den andra. *Beroenderiktningen* är det håll beroendena pekar. Att vyn beror på modellen betyder att vyns kod känner till modellen, men inte tvärtom.
+>
+> Beroende är inte samma sak som dataflöde. Data flyttas från modellen till vyn varje frame, men beroendet pekar från vyn till modellen, eftersom det är vyn som känner till modellen. *Beroenderegeln* (*the Dependency Rule*, Robert C. Martin) säger att beroenden ska peka mot det som är stabilt och bär reglerna, i Ripe Tomato modellen. En längre förklaring finns i [MVC_DESIGN.md](MVC_DESIGN.md#reglerna-kontrolleras-av-lintern).
 
 Den viktigaste regeln i Ripe Tomato är att modellen inte beror på något utanför sig själv. Den kontrolleras med ESLints inbyggda `no-restricted-imports`, avgränsad till filerna i `models/`:
 
@@ -105,7 +132,7 @@ Samma idé går längre än importer. `no-restricted-globals` förbjuder `window
 
 ### Pipelinen gör regeln bindande
 
-En linter som bara körs lokalt är en hjälp, inte ett krav. Den som inte kör `npm run lint` märker ingenting. Därför körs samma kontroller i en pipeline, `.github/workflows/ci.yml`, vid varje pull request.
+En linter som bara körs lokalt är en hjälp, inte ett krav. Den som inte kör `npm run lint` märker ingenting. Därför körs samma kontroller med *CI* (*continuous integration*): varje ändring som skickas till det gemensamma repot byggs och kontrolleras automatiskt på en server. Stegen som körs kallas en *pipeline*. I Ripe Tomato beskrivs den i `.github/workflows/ci.yml` och körs vid varje pull request.
 
 ```mermaid
 sequenceDiagram
@@ -124,7 +151,7 @@ sequenceDiagram
     G-->>U: kan inte slås ihop
 ```
 
-Det sista steget, att pull requesten inte kan slås ihop, kräver en inställning i GitHub: jobbet måste göras till en obligatorisk statuskontroll i *branch protection* för `main`. Först då är regeln bindande. Den gäller också när ingen granskar.
+Att pipelinen körs betyder bara att resultatet syns. En pull request med röd pipeline kan fortfarande slås ihop. Det sista steget kräver en inställning i GitHub, *branch protection*, som skyddar en gren med villkor som måste vara uppfyllda innan något får slås ihop till den. Pipelinens jobb görs där till en obligatorisk statuskontroll för `main`. Först då är regeln bindande. Den gäller också när ingen granskar.
 
 Det betyder inte att granskningen blir onödig. Den *avlastas*. Det som kan uttryckas som en mekanisk regel kontrolleras varje gång och utan undantag av verktyget. Granskaren behöver inte leta efter den sortens fel och kan i stället ägna sig åt det verktyg inte ser.
 
@@ -151,13 +178,13 @@ Resonemanget ovan betyder inte att kontroller i körande kod alltid är fel. Fö
 
 Förtroendegränsen är intressant av ett enkelt skäl: **det är där garantierna upphör.** Bakom gränsen räcker det att verktyg och tester kontrollerar den egna koden, eftersom ingen annan kod når dit. Vid gränsen finns inget verktyg som kan veta vad som kommer att skickas, så där måste datan kontrolleras när programmet körs, varje gång.
 
-Gränsen avgör därför var en kontroll i körande kod är värd sin kostnad. Missas en kontroll vid gränsen blir följden ofta en säkerhetsbrist: injektion, XSS eller att någon kan ändra data de inte ska få ändra. Läggs samma kontroll i stället överallt bakom gränsen blir följden ceremoni: kod som kontrollerar det som redan är kontrollerat och som gör programmet svårare att läsa. Den som vet var gränserna går vet alltså både var kontrollerna måste finnas och var de kan utelämnas.
+Gränsen avgör därför var en kontroll i körande kod är värd sin kostnad. Missas en kontroll vid gränsen blir följden ofta en säkerhetsbrist: injektion (till exempel SQL-injektion, där indata tolkas som en del av en databasfråga), XSS eller att någon kan ändra data de inte ska få ändra. Läggs samma kontroll i stället överallt bakom gränsen blir följden ceremoni: kod som kontrollerar det som redan är kontrollerat och som gör programmet svårare att läsa. Den som vet var gränserna går vet alltså både var kontrollerna måste finnas och var de kan utelämnas.
 
 Kontroller i körande kod är därför rätt i tre situationer.
 
 **Vid förtroendegränser.** Indata från användare, filer och nätverk kan vara vad som helst, och ingen linter kan veta vad en användare skriver eller vad en server skickar. Sådant måste valideras när programmet körs. Om Ripe Tomato en dag hämtar banor från en server, ska JSON-datat valideras innan det blir domänobjekt.
 
-**I bibliotek som andra använder.** En lintregel skyddar bara den kod den körs på. Den som använder ett bibliotek kör inte bibliotekets linter. Ett bibliotek behöver därför skydda sina invarianter med språkets egna medel, som `#private`, `Object.freeze` och validering av argument, i högre grad än en applikation där all kod är ens egen.
+**I bibliotek som andra använder.** En lintregel skyddar bara den kod den körs på. Den som använder ett bibliotek kör inte bibliotekets linter. Ett bibliotek behöver därför skydda sina *invarianter*, alltså det som alltid ska gälla för dess objekt, som att en position är ett ändligt tal, med språkets egna medel, som `#private`, `Object.freeze` och validering av argument, i högre grad än en applikation där all kod är ens egen.
 
 **När säkerhet står på spel.** En lintregel kan stängas av med en kommentar. Den är ett skydd mot misstag, aldrig mot någon som medvetet försöker kringgå den.
 
@@ -192,7 +219,7 @@ flowchart LR
     E -->|"svar med andra användares innehåll:<br/>förtroendegräns"| UI
 ```
 
-Bilden visar en vanlig webbapplikation med två gränser. Requesten in till servern är den välkända. Den andra går åt motsatt håll: när klienten visar innehåll som andra användare har skapat, är det data utifrån, även om den kommer från den egna servern. Ripe Tomato saknar båda, eftersom spelet varken skickar eller tar emot något.
+Bilden visar en vanlig webbapplikation med två gränser. Requesten in till servern är den välkända. Vid den kontrolleras både att indata är giltig och *behörigheten*, alltså vad den inloggade användaren får göra. Bakom gränsen ligger domänlogiken och de *repositories* som läser och skriver i databasen. Den andra går åt motsatt håll: när klienten visar innehåll som andra användare har skapat, är det data utifrån, även om den kommer från den egna servern. Ripe Tomato saknar båda, eftersom spelet varken skickar eller tar emot något.
 
 I [REFLECTION_SESSION_2.md](REFLECTION_SESSION_2.md) jämförs MVC i en spelloop med MVC i en Express-app som renderar HTML på servern. De två ligger i var sin ände av skalan, och avsnitten nedan börjar med dem.
 
@@ -277,6 +304,17 @@ commentElement.textContent = comment.text
 ```
 
 Det första exemplet är en XSS-sårbarhet (*cross-site scripting*). Det är samma sorts gräns som `req.body` på servern, fast åt andra hållet: data utifrån når en plats där den kan tolkas som kod. Andra gränser i klienten är parametrar i URL:en, meddelanden via `postMessage` (där avsändarens `event.origin` måste kontrolleras), `localStorage` som användaren kan ändra fritt, och skript från tredje part.
+
+> [!NOTE]
+> **Validering, kodning och sanering**
+>
+> Tre olika åtgärder som ofta blandas ihop:
+>
+> - **Validering** kontrollerar att indata har rätt form *när den kommer in*, till exempel att en kommentar är en sträng på högst 2000 tecken. Ogiltig indata avvisas.
+> - **Kodning** (*output encoding*) gör om data så att den visas som text *där den hamnar* i stället för att tolkas som kod. I HTML blir tecknet `<` till `&lt;`. Vilken kodning som behövs beror på sammanhanget: HTML-innehåll, ett attribut, en URL och JavaScript kräver olika regler.
+> - **Sanering** (*sanitization*) rensar bort de farliga delarna men behåller resten, till exempel när användare får skriva viss HTML men inga skript. Det görs med ett etablerat bibliotek, som DOMPurify, aldrig med egna reguljära uttryck.
+>
+> Validering räcker inte mot XSS. En kommentar som innehåller en `<script>`-tagg kan vara en fullt giltig sträng på under 2000 tecken. Det som skyddar är att den kodas, eller sätts som text med `textContent`, när den renderas.
 
 Även här hjälper verktygen till, men på ett annat sätt. Ramverk som React kodar text automatiskt, och det osäkra alternativet heter `dangerouslySetInnerHTML`. Namnet gör risken synlig i koden. En lintregel som Mozillas `eslint-plugin-no-unsanitized` pekar ut varje `innerHTML` med dynamiskt innehåll. En *Content Security Policy* är en inställning och inte kod, och den begränsar vilka skript webbläsaren över huvud taget kör. Verktygen kan alltså visa *var* en kontroll i körande kod behövs, men själva kodningen av datan sker när programmet körs.
 
