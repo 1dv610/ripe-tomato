@@ -48,6 +48,24 @@ Två regler gör separationen tydlig:
 1. **Bara kontrollern ändrar modellen.** Vyn läser modellens tillstånd via getters men anropar aldrig kommandon som `jump()`.
 2. **Bara `index.js` och vyerna ser p5.** Kontrollerns input-klasser tar emot vanliga värden (`'ArrowLeft'`, `x`, `y`), så de kan testas utan p5.
 
+### Reglerna kontrolleras av lintern
+
+Beroenderiktningen står inte bara i det här dokumentet. Den kontrolleras i `eslint.config.js` med ESLints inbyggda regler, utan några extra beroenden:
+
+| Mapp | Regel | Förbjuder |
+| --- | --- | --- |
+| `models/` | `no-restricted-imports` | `p5`, `views/`, `controllers/`, `index.js` |
+| `models/` | `no-restricted-globals` | `window`, `document`, `navigator`, `localStorage`, `sessionStorage`, `fetch` |
+| `models/` | `no-restricted-properties` | `Math.random`, `Date.now`, `performance.now` |
+| `views/` | `no-restricted-imports` | `controllers/`, `index.js` |
+| `controllers/` | `no-restricted-imports` | `p5`, `views/` utom `views/Camera.js`, `index.js` |
+
+Mönstren är i gitignore-stil (`**/views/**`) och fångar därför både alias-importer (`@/views/GameView.js`) och relativa (`../views/GameView.js`). Undantaget för `Camera` uttrycks med negation (`!**/views/Camera.js`).
+
+Reglerna för globala variabler och egenskaper går längre än importerna. De håller modellen fri från webbläsaren, så att den kan köras i Node, och fri från dolda källor till tid och slump, så att den är deterministisk. Tid kommer via `update(dt)`, och slump ska injiceras som en funktion.
+
+Lintern kontrollerar *importer*, inte anrop. En vy som anropar `game.jump()` upptäcks inte, eftersom vyn har rätt att importera och läsa modellen. Typimporter i JSDoc (`@typedef {import('@/views/Camera.js').Camera}`) kontrolleras inte heller, eftersom ESLint inte tolkar kommentarer. De är dessutom bara typinformation och påverkar inte vad som körs.
+
 ## Katalogstruktur och namn
 
 ```text
