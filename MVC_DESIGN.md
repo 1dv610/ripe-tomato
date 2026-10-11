@@ -1,6 +1,6 @@
 # Ripe Tomato: en MVC-design för en spelloop
 
-Det här dokumentet beskriver en komplett MVC-arkitektur för Ripe Tomato. Den utgår inte från den kod som finns i dag, men avsnittet [Från nuvarande kod](#från-nuvarande-kod) visar vad som skiljer sig. Diskussionen om MVC i request/response jämfört med en spelloop finns i [REFLECTION_SESSION_2.md](REFLECTION_SESSION_2.md). Här är fokus i stället konkret: vilka klasser som finns, vad de ansvarar för, vad filerna heter och hur objekten samverkar under en frame.
+Det här dokumentet beskriver MVC-arkitekturen för Ripe Tomato. Designen togs fram utan hänsyn till den tidigare koden och är implementerad på grenen `spike/alt-mvc`. Kodexemplen är förkortade utdrag ur den koden. Avsnittet [Från tidigare kod](#från-tidigare-kod) visar vad som har ändrats. Diskussionen om MVC i request/response jämfört med en spelloop finns i [REFLECTION_SESSION_2.md](REFLECTION_SESSION_2.md). Här är fokus i stället konkret: vilka klasser som finns, vad de ansvarar för, vad filerna heter och hur objekten samverkar under en frame.
 
 ## Krav
 
@@ -12,11 +12,11 @@ Utöver det tillkommer några kvalitetskrav som följer av kursen:
 
 - Modellen ska kunna köras och testas utan gränssnittet.
 - Rörelser ska vara oberoende av bildfrekvensen.
-- En ny hindertyp ska kunna läggas till utan att befintliga klasser behöver skrivas om.
+- En ny hindertyp ska kunna läggas till utan att `Game` eller de andra hindren ändras. Det enda som behöver läggas till utanför den nya klassen är en ritfunktion i `ObstacleView`.
 
 ## Översikt
 
-Arkitekturen har tre roller och en startpunkt. Det finns inga fler lager än så. Det som bär designen är **beroenderiktningen**:
+Arkitekturen har tre roller och en startpunkt. Det finns inga fler lager än så. Det som bär designen är **beroenderiktningen**. Varje pil betyder "känner till": pilen går från den som beror på något till det den beror på.
 
 ```mermaid
 flowchart LR
@@ -24,17 +24,19 @@ flowchart LR
     C["controllers/"]
     V["views/"]
     M["models/"]
-    P(["p5-instansen"])
+    P(["p5"])
 
     S --> C
     S --> V
     S --> M
+    S -->|"skapar instansen,<br/>tar emot händelser"| P
     C --> M
     V --> M
-    C -->|"Camera"| V
-    P -.->|"händelser"| S
-    P -.->|"ritanrop"| V
+    C -->|"bara Camera"| V
+    V -.->|"ritar via injicerat p"| P
 ```
+
+Heldragna pilar är importer. Den streckade pilen är ett beroende som uppstår när koden körs: vyerna importerar inte p5, de får instansen `p` från `index.js` och ritar genom den. Alla pilar som rör `models/` pekar in mot den, och ingen går ut från den.
 
 | Del | Får känna till | Får inte känna till |
 | --- | --- | --- |
@@ -45,7 +47,7 @@ flowchart LR
 
 Två regler gör separationen tydlig:
 
-1. **Bara kontrollern ändrar modellen.** Vyn läser modellens tillstånd via getters men anropar aldrig kommandon som `jump()`.
+1. **Bara kontrollern skickar kommandon till modellen, och bara loopen driver tiden.** Kontrollern anropar `jump()`, `steer()` och `restart()`, och `index.js` anropar `update(dt)`. Vyn läser modellens tillstånd via getters men ändrar det aldrig.
 2. **Bara `index.js` och vyerna ser p5.** Kontrollerns input-klasser tar emot vanliga värden (`'ArrowLeft'`, `x`, `y`), så de kan testas utan p5.
 
 ### Reglerna kontrolleras av lintern
@@ -65,6 +67,8 @@ En arkitekturregel som bara står i ett dokument följs så länge alla minns de
 - **Snabb återkoppling.** Felet syns i editorn medan man skriver, inte i en granskning dagar senare, eller aldrig.
 - **Regeln förklarar sig själv.** Varje regel har ett felmeddelande som säger *varför* den finns, till exempel att modellen ska kunna köras i Node. Dokumentationen syns alltså där överträdelsen sker.
 - **Nästan ingen kostnad.** Ingenting körs när spelet körs, och reglerna är några rader konfiguration med ESLints inbyggda regler, utan extra beroenden.
+
+Lintern ersätter inte kodgranskningen, den avlastar den. Det som kan uttryckas som en mekanisk regel, som "modellen importerar inte p5", kontrolleras varje gång och utan undantag av verktyget. Granskningen behöver då inte leta efter den sortens fel, som lätt missas, och kan ägna sig åt det verktyg inte ser: om namnen är bra, om ansvaret ligger rätt och om designen håller för nästa krav.
 
 Reglerna i `eslint.config.js`:
 
@@ -122,7 +126,7 @@ src/js/
 Namnkonventionerna:
 
 - **PascalCase för filer som exporterar en klass** (`Tomato.js`), **camelCase för moduler med funktioner** (`levels.js`, `geometry.js`).
-- **Pluralis på rollmapparna** (`models/`, `views/`, `controllers/`), som i dag. En undermapp (`obstacles/`) införs när en roll får en grupp klasser som hör ihop.
+- **Pluralis på rollmapparna** (`models/`, `views/`, `controllers/`), som i den tidigare koden. En undermapp (`obstacles/`) införs när en roll får en grupp klasser som hör ihop.
 - **Domännamn framför generiska namn.** `Tomato` i stället för `GameCharacter`: det finns bara en sorts karaktär, och "Game" i namnet säger inget som inte redan framgår av sammanhanget. Vyklasser heter som det de ritar, plus `View` (`TomatoView`).
 - **Tester ligger bredvid koden de testar,** `Tomato.test.js` bredvid `Tomato.js`. Vitest är redan konfigurerat för `**/*.test.js`.
 
@@ -214,6 +218,7 @@ classDiagram
 export class Game {
   /** The longest step the simulation takes, in seconds. */
   static #MAX_TIME_STEP = 1 / 30
+  static #START_X = 1 // where the tomato's center starts, in tomatoes
 
   #createLevel
   #tomato
@@ -269,7 +274,7 @@ export class Game {
 Några beslut som syns i koden:
 
 - **`update(dt)` tar emot tiden.** p5 äger klockan (`p.deltaTime`), modellen äger reglerna. Ett test kan därför stega fram exakt den tid det vill.
-- **Tidssteget begränsas i modellen.** När en flik har varit dold kan `deltaTime` bli flera sekunder, och tomaten skulle då kunna passera rakt igenom ett hinder. Gränsen är en spelregel och ligger därför i modellen, där den kan testas.
+- **Tidssteget begränsas i modellen.** När en flik har varit dold kan `deltaTime` bli flera sekunder, och tomaten skulle då kunna passera rakt igenom ett hinder. Gränsen är en spelregel och ligger därför i modellen, där den kan testas. Priset är att spelet går i slow motion om bildfrekvensen sjunker under 30 fps, eftersom den tid som överstiger gränsen inte simuleras.
 - **Banan injiceras som en fabriksfunktion.** `restart()` anropar fabriken igen och får ett nytt hinderset med nollställt tillstånd. Startposition och mål hör till banan, inte till tomaten.
 - **`obstacles` returnerar en kopia av listan.** Hindren själva lämnas ut som referenser. Att kopiera alla objekt varje frame vore onödigt, och konventionen är att vyn bara läser. Kopian av listan hindrar ändå att hinder läggs till eller tas bort utifrån.
 
@@ -671,6 +676,7 @@ const sketch = (p) => {
     return false
   }
 
+  // p5 2.x calls the mouse* hooks for every pointer type: mouse, touch and pen.
   p.mousePressed = () => {
     if (isInsideCanvas()) pointer.press(p.mouseX, p.mouseY)
   }
@@ -839,7 +845,7 @@ sequenceDiagram
 
     S->>V: draw()
     V->>H: draw(game)
-    Note over H: "Game over: tryck Space eller klicka"
+    Note over H: "Squashed! Press Space or click to try again."
 
     Note over S,G: frames passerar, update() gör ingenting
     A->>S: trycker Space (buffras)
@@ -861,11 +867,26 @@ sequenceDiagram
 | Var begränsas tidssteget? | I `Game.update()` | I sketchen | Det är en spelregel, och den ska kunna testas |
 | Hur når kontrollern modellen? | Bara via `Game` | Direkt till `Tomato` | Ett litet gränssnitt, och regler som "inga hopp efter game over" finns på ett ställe |
 | Vem skapar canvasen? | `index.js` | `GameView`s konstruktor | Vyn kan testas med en mockad `p`, och varningen om initieringsordning behövs bara på ett ställe |
-| Lämnar modellen ut sina objekt? | Ja, som referenser. Listor kopieras | Kopior eller skrivskyddade vyer varje frame | Kopiering varje frame kostar mer än det ger. Konventionen är att vyn bara läser |
+| Lämnar modellen ut sina objekt? | Ja, som referenser. Listor kopieras | Kopior, DTO:er eller skrivskyddade vyer varje frame | Underhållet av en andra beskrivning av samma form kostar mer än det skyddar. Konventionen är att vyn bara läser, och lintern fångar kommandoanrop från vyer |
+| Hur upprätthålls beroenderiktningen? | ESLint-regler per mapp | Bara dokumentation och granskning | Felet syns direkt i editorn, och regeln gäller även när ingen granskar |
+
+### Kompromisser
+
+Designen har kompromisser. Alla är medvetna, och ingen är ett problem för dagens krav:
+
+| Kompromiss | Konsekvens | Om det blir ett problem |
+| --- | --- | --- |
+| Modellen lämnar ut riktiga objekt (`game.tomato`) | En vy *kan* anropa en metod som ändrar modellen | Lintern fångar kommandon på namn. Destrukturera parametrar i lövvyerna (`draw({ x, y, radius })`) där det förenklar tester |
+| `GameController` beror på `Camera` i `views/` | Kontrollern och vyn är kopplade | Injicera bara en funktion `toWorld(x, y)` i stället för hela kameran |
+| Vyn flyttar kameran i `draw()` | Klick tolkas mot förra framens kamera | Inget att åtgärda, eftersom det är vad spelaren såg |
+| `ObstacleView` väljer ritfunktion på exakt klass | En subklass till `Crate` får ingen ritfunktion | Slå upp via prototypkedjan, eller byt till en visitor |
+| Variabelt tidssteg med tak | Slow motion under 30 fps, och fysiken skiljer sig något mellan olika bildfrekvenser | Fast tidssteg med ackumulator. Det krävs om spelomgångar ska kunna spelas upp exakt igen |
+| Fysikkonstanterna är privata i `Tomato` | De kan inte variera per bana | Injicera en konfiguration, eller låt banan ange dem |
+| Modellen exponerar tillstånd men inga händelser | Vyn kan inte spela ett ljud *när* tomaten hoppar | En händelsekö, se [Öppna frågor](#öppna-frågor) |
 
 ## Fler lager?
 
-Nej, inte för det här problemet. Lager som service eller repository löser problem med persistens, transaktioner och logik som delas mellan flera gränssnitt, och sådana problem finns inte här. Ett extra lager skulle bara skicka vidare anrop.
+Nej, inte för det här problemet. Lager som service eller repository löser problem med persistens, transaktioner och logik som delas mellan flera gränssnitt, och sådana problem finns inte här. Ett extra lager skulle bara skicka vidare anrop. Arkitekturen ska kosta i proportion till den risk den tar bort.
 
 Det som behövs är i stället tydliga gränser inom och runt de tre rollerna:
 
@@ -875,6 +896,27 @@ Det som behövs är i stället tydliga gränser inom och runt de tre rollerna:
 
 Om spelet får en startmeny, en poänglista och flera banor är nästa steg en `Scene`-abstraktion, där varje scen har sin egen modell, vy och kontroller och sketchen byter mellan dem. Det ger fler triader, inte fler lager.
 
+### När lager lönar sig
+
+Lager lönar sig när spelet får **I/O**, alltså server, lagring eller asynkrona anrop:
+
+- **Banor från en server.** En bana blir data (JSON) som ska valideras och översättas till domänobjekt. Då behövs ett *repository* (`LevelRepository.get(id)`) och en fabrik som går från typnamn till klass. Banan laddas innan spelet startar, så att `Game` förblir synkron. `new Game(createLevel)` tar redan en fabrik och behöver inte ändras.
+- **En highscore-lista.** Ett `HighscoreRepository` och ett tunt *applikationslager* som samordnar användningsfallet: banan är klarad, tiden räknas fram, resultatet skickas och nästa bana låses upp. Den samordningen hör varken hemma i `Game`, som är ren och synkron, eller i kontrollern, som översätter input.
+- **Fusk med highscore.** Vem som helst kan skicka vilken tid som helst till servern. Det robusta motmedlet är att skicka inputloggen och låta servern spela upp den med *samma modellkod*. Det kräver ett fast tidssteg och seedad slump. Det går bara eftersom modellen saknar beroende till p5 och därför kan köras i Node, och det är därför lintern förbjuder `window`, `Math.random` och `Date.now` i modellen.
+- **Spelets tillstånd på servern varje frame** är däremot fel väg. Latensen är flera frames lång, så tillståndet måste finnas i klienten. Det som sparas på servern är varaktigt, som framsteg och inställningar, och det sparas vid händelser.
+
+DTO:er hör hemma vid sådana verkliga gränser, där JSON redan är en DTO och en översättning behövs ändå. Mellan modell och vy i samma process ger de mest underhåll.
+
+```text
+src/js/
+├── models/           # oförändrad: ren, synkron, kan delas med servern
+├── application/      # användningsfall: startLevel(id), submitScore(run)
+├── infrastructure/   # HttpLevelRepository, HttpHighscoreRepository
+├── scenes/           # MenuScene, PlayScene, HighscoreScene, var och en med egen M/V/C
+├── views/
+└── controllers/
+```
+
 ## Testbarhet
 
 | Klass | Vad testas | Behövs p5? |
@@ -882,6 +924,7 @@ Om spelet får en startmeny, en poänglista och flera banor är nästa steg en `
 | `Tomato` | hopp bara från marken, gravitation, att tomaten landar på `y = radius`, fart oberoende av hur `dt` delas upp | nej |
 | `Game` | statusövergångar, att `update` inte gör något efter game over, att `restart` ger ny bana, att tidssteget begränsas | nej |
 | `Crate`, `Bird`, `Pit` | `collidesWith` i kantfall | nej |
+| `levels.js` | att banan går att klara, med en skriptad spelare som hoppar framför lådor och gropar och väntar in fåglarna | nej |
 | `geometry.js` | `circleIntersectsRect` | nej |
 | `KeyboardInput`, `PointerInput` | tangentmappning, autorepeat, `consume…` förbrukar exakt en gång | nej |
 | `GameController` | att avsikter blir rätt kommandon, med en fejkad `Game` och `Camera` | nej |
@@ -923,9 +966,9 @@ describe('Tomato', () => {
 })
 ```
 
-## Från nuvarande kod
+## Från tidigare kod
 
-| I dag | I den här designen |
+| Tidigare (`main`) | Nu (`spike/alt-mvc`) |
 | --- | --- |
 | `models/GameCharacter.js` | `models/Tomato.js` med hastighet, `jump()`, `steer()` och `update(dt)` |
 | `Game` med `jump()` som stub och `groundHeight` | `Game` som fasad med `update(dt)`, status och bana. Markens tjocklek finns bara i `Camera` |
@@ -937,6 +980,7 @@ describe('Tomato', () => {
 ## Öppna frågor
 
 - **Pekskärmar.** p5 2.x bygger på pointer events, så `mousePressed`, `mouseDragged` och `mouseReleased` anropas även vid touch. Det har inte provats på en riktig pekskärm.
-- **Tangenter som fastnar.** Om fönstret tappar fokus medan en tangent hålls nere kommer ingen `keyReleased`. Därför anropar `index.js` `keyboard.reset()` när fönstret får `blur`.
+- **CI.** Lintern och testerna körs bara lokalt. Om de körs i en pipeline kan kod som bryter mot reglerna inte slås ihop.
+- **Fast tidssteg.** Behövs först om spelomgångar ska spelas upp exakt igen, till exempel för att verifiera highscores. Se [Kompromisser](#kompromisser).
 - **Flera banor och menyer.** Se `Scene`-resonemanget under [Fler lager?](#fler-lager).
 - **Ljud och partiklar.** Det är presentation och hör hemma i vyn. Om vyn behöver veta *att* något hände, inte bara *hur* det ser ut nu, kan modellen exponera händelser som `game.events` som vyn läser och tömmer varje frame. Modellen behöver ändå inte känna till vyn.
