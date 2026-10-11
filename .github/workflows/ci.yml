@@ -1,0 +1,41 @@
+# Runs the same checks as a developer would locally, so a change that breaks the
+# architecture rules in eslint.config.js, the formatting, a test or the build is
+# stopped before it can be merged. Make the "check" job a required status check in
+# the branch protection for main to enforce it.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same branch or pull request makes an older run pointless.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint, format, test and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Includes the architecture rules: the MVC dependency direction is enforced here.
+      - run: npm run lint
+
+      - run: npm run format:check
+
+      - run: npm run test:run
+
+      - run: npm run build
