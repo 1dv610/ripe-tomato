@@ -68,6 +68,8 @@ En arkitekturregel som bara står i ett dokument följs så länge alla minns de
 - **Regeln förklarar sig själv.** Varje regel har ett felmeddelande som säger *varför* den finns, till exempel att modellen ska kunna köras i Node. Dokumentationen syns alltså där överträdelsen sker.
 - **Nästan ingen kostnad.** Ingenting körs när spelet körs, och reglerna är några rader konfiguration med ESLints inbyggda regler, utan extra beroenden.
 
+Resonemanget om var en regel bör kontrolleras, och hur svaret skiljer sig mellan språk, finns i [ENFORCING_DESIGN_WITH_TOOLS.md](ENFORCING_DESIGN_WITH_TOOLS.md).
+
 Lintern ersätter inte kodgranskningen, den avlastar den. Det som kan uttryckas som en mekanisk regel, som "modellen importerar inte p5", kontrolleras varje gång och utan undantag av verktyget. Granskningen behöver då inte leta efter den sortens fel, som lätt missas, och kan ägna sig åt det verktyg inte ser: om namnen är bra, om ansvaret ligger rätt och om designen håller för nästa krav.
 
 Reglerna i `eslint.config.js`:
