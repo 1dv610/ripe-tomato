@@ -2,7 +2,7 @@
 
 Den här texten handlar om var ett designbeslut ska upprätthållas. Ett beslut som "modellen får inte bero på vyn" kan stå i ett dokument, byggas in i koden som skydd som körs varje gång programmet körs, eller kontrolleras av ett verktyg innan koden ens har körts. Valet påverkar hur lätt koden är att läsa, vad den kostar att köra och om regeln faktiskt följs. Därför hör frågan hemma i en kurs om mjukvarukvalitet: en regel som ingen kontrollerar är en önskan, och ett skydd som gör koden svårare att läsa kan kosta mer än det ger.
 
-Exemplen kommer från Ripe Tomato, där arkitekturen beskrivs i [MVC_DESIGN.md](MVC_DESIGN.md). Ett eget avsnitt visar hur slutsatserna ändras i en Express-app, den MVC-variant som jämförs med spelloopen i [REFLECTION_SESSION_2.md](REFLECTION_SESSION_2.md). Avsnittet om andra språk visar att samma fråga får olika svar beroende på vad språket självt kan uttrycka.
+Exemplen kommer från Ripe Tomato, där arkitekturen beskrivs i [MVC_DESIGN.md](MVC_DESIGN.md). Ett eget avsnitt visar varför slutsatserna beror på var förtroendegränserna går. Det jämför spelet med en Express-app, den MVC-variant som jämförs med spelloopen i [REFLECTION_SESSION_2.md](REFLECTION_SESSION_2.md), och prövar om det går att generalisera efter roll, frontend och backend. Avsnittet om andra språk visar att samma fråga får olika svar beroende på vad språket självt kan uttrycka.
 
 ## Problemet: regler som bara finns i ett dokument
 
@@ -140,9 +140,38 @@ Resonemanget ovan betyder inte att kontroller i körande kod alltid är fel. De 
 
 Ripe Tomato har exempel på båda sidor av gränsen. `Tomato`s konstruktor kontrollerar att argumenten är ändliga tal och kastar ett `TypeError` annars. Kontrollen körs en gång per objekt och fångar felet där det uppstår, i stället för som ett `NaN` som dyker upp långt senare i ritkoden. Det är billigt och ger mycket. `Game.update(dt)` kontrollerar på samma sätt att `dt` är ett giltigt tal, men den kontrollen körs varje frame, och den enda som anropar metoden är spelets egen loop. Kostnaden är försumbar, men den är svårare att motivera. Den hade kunnat ersättas med ett test av loopen.
 
-## Sammanhanget avgör: spelloop jämfört med Express
+## Sammanhanget avgör: var går gränsen?
 
-Slutsatserna om Ripe Tomato gäller Ripe Tomato. Principen är allmän: kontrollera varje regel på den tidigaste nivå som faktiskt fungerar, och lägg kontroller i körande kod vid förtroendegränserna. Men var förtroendegränserna går beror på vilken sorts applikation det är. I [REFLECTION_SESSION_2.md](REFLECTION_SESSION_2.md) jämförs MVC i en spelloop med MVC i en Express-app som renderar HTML på servern. Samma jämförelse ger olika svar på frågorna i den här texten.
+Slutsatserna om Ripe Tomato gäller Ripe Tomato. Principen är allmän: kontrollera varje regel på den tidigaste nivå som faktiskt fungerar, och lägg kontroller i körande kod vid förtroendegränserna. Men var förtroendegränserna går beror på sammanhanget, och då kan samma princip ge motsatta svar.
+
+För en webbprogrammerare ligger det nära till hands att dela upp frågan efter roll: frontendutvecklare kan lita på verktyg och typer, och backendutvecklare måste kontrollera allt när koden körs. Indelningen stämmer ofta, men den är ett ungefärligt mått på något annat. Den är dessutom extra vansklig på webben, där samma person ofta skriver både klient och server och där samma språk, JavaScript, körs på båda sidor. Det som avgör är tre frågor om själva koden:
+
+1. **Vem kontrollerar miljön där koden körs?** Din egen server, eller en enhet som användaren bestämmer över?
+2. **Var kommer datan ifrån?** Från din egen kod, eller utifrån: användare, nätverk, filer, tredje part?
+3. **Vem anropar koden?** Bara din egen kod, eller andra: en biblioteksanvändare, en publik ändpunkt?
+
+Svaren bestämmer var gränserna går. Bakom en gräns, där bara den egna koden når fram, räcker verktyg och typer. Vid gränsen behövs kontroller i körande kod. Det gäller oavsett om koden körs i webbläsaren eller på servern.
+
+```mermaid
+flowchart LR
+    subgraph U["Användarens enhet: användaren bestämmer"]
+        UI["Klientkod<br/>validering är användarupplevelse,<br/>data från andra kodas vid rendering"]
+    end
+    subgraph S["Din server: du bestämmer"]
+        E["Gränsen<br/>validering, behörighet,<br/>projektion av utdata"]
+        D["Domänlogik<br/>bara egen kod anropar"]
+        R["Repositories"]
+    end
+    DB[("Databas")]
+
+    UI -->|"request: förtroendegräns"| E
+    E --> D --> R --> DB
+    E -->|"svar med andra användares innehåll:<br/>förtroendegräns"| UI
+```
+
+Bilden visar en vanlig webbapplikation med två gränser. Requesten in till servern är den välkända. Den andra går åt motsatt håll: när klienten visar innehåll som andra användare har skapat, är det data utifrån, även om den kommer från den egna servern. Ripe Tomato saknar båda, eftersom spelet varken skickar eller tar emot något.
+
+I [REFLECTION_SESSION_2.md](REFLECTION_SESSION_2.md) jämförs MVC i en spelloop med MVC i en Express-app som renderar HTML på servern. De två ligger i var sin ände av skalan, och avsnitten nedan börjar med dem.
 
 ### Ripe Tomato har nästan inga förtroendegränser
 
@@ -210,6 +239,116 @@ Beroenderegeln och tekniken för att kontrollera den är desamma. I en Express-a
 ```
 
 Arbetsfördelningen mellan verktyg och granskning är också densamma. Skillnaden är att en Express-app har fler regler som *inte* kan kontrolleras av verktyg, eftersom de handlar om vilken data som är känslig och vem som får se den. Det gör granskningen viktigare där, inte mindre viktig.
+
+### Frontend har också förtroendegränser
+
+Ripe Tomato är ett extremfall: ingen data utifrån, en enda författare och ingenting att skydda. En vanlig webbklient visar kommentarer, profiler och meddelanden som andra användare har skrivit. Den som drar slutsatsen att klientkod saknar förtroendegränser skriver lätt så här:
+
+```js
+// Renders the comment as HTML. A comment containing <img src=x onerror="..."> runs
+// its code in the browser of everyone who reads it.
+commentElement.innerHTML = comment.text
+
+// Renders the comment as text. The browser never interprets it as HTML.
+commentElement.textContent = comment.text
+```
+
+Det första exemplet är en XSS-sårbarhet (*cross-site scripting*). Det är samma sorts gräns som `req.body` på servern, fast åt andra hållet: data utifrån når en plats där den kan tolkas som kod. Andra gränser i klienten är parametrar i URL:en, meddelanden via `postMessage` (där avsändarens `event.origin` måste kontrolleras), `localStorage` som användaren kan ändra fritt, och skript från tredje part.
+
+Även här hjälper verktygen till, men på ett annat sätt. Ramverk som React kodar text automatiskt, och det osäkra alternativet heter `dangerouslySetInnerHTML`. Namnet gör risken synlig i koden. En lintregel som Mozillas `eslint-plugin-no-unsanitized` pekar ut varje `innerHTML` med dynamiskt innehåll. En *Content Security Policy* är en inställning och inte kod, och den begränsar vilka skript webbläsaren över huvud taget kör. Verktygen kan alltså visa *var* en kontroll i körande kod behövs, men själva kodningen av datan sker när programmet körs.
+
+### Det mesta av backend ligger bakom gränsen
+
+Motsatsen gäller också. När en request väl har validerats och behörigheten är kontrollerad, är domänlogiken i samma läge som modellen i Ripe Tomato: bara den egna koden anropar den. Där är DTO:er mellan varje internt lager, defensiva kopior och en kontroll av varje argument i varje metod ren ceremoni. Lintregler, typer och tester räcker även där.
+
+Ett användbart sätt att tänka kallas *parse, don't validate*. Datan kontrolleras en gång, vid gränsen, och översätts där till domänobjekt som bara kan finnas i giltigt skick. Konstruktorn i `Tomato` som avvisar `NaN` är ett litet exempel. Innanför gränsen behöver koden sedan inte fråga igen.
+
+### När gränsen går mitt i kodbasen
+
+I ramverk som Next.js, Remix och SvelteKit ligger klientkod och serverkod i samma kodbas, ibland i samma fil. Då syns gränsen inte längre i katalogstrukturen:
+
+```js
+'use server'
+
+// Called from a component like an ordinary function, but it is an HTTP endpoint that
+// anyone can call with any arguments. It needs the same checks as an Express route.
+export async function deleteComment(commentId) {
+  const user = await getCurrentUser()
+  const comment = await Comment.findById(commentId)
+  if (!user || comment.authorId !== user.id) {
+    throw new Error('Not allowed.')
+  }
+  await comment.deleteOne()
+}
+```
+
+Det som ser ut som ett funktionsanrop inom programmet är i själva verket en förtroendegräns. Risken finns också åt andra hållet: om en klientkomponent importerar en modul som läser hemliga nycklar, kan nycklarna hamna i den kod som skickas till webbläsaren. Den risken stoppas med ett verktyg. En modul som börjar med `import 'server-only'` får bygget att misslyckas om den importeras i klientkod. Det är den här textens resonemang i miniatyr: gränsen har säkerhetskonsekvenser, men den upprätthålls tidigast och billigast av byggverktyget.
+
+### Kontroller som bara körs under utveckling
+
+Det finns ett mellanläge mellan verktyg och kontroller i körande kod: kontroller som bara finns i utvecklingsbygget. Redux Toolkit upptäcker otillåtna ändringar av tillståndet, men bara under utveckling. React StrictMode renderar komponenter två gånger för att hitta oavsiktliga sidoeffekter, också bara under utveckling. Kontrollerna fångar den egna kodens misstag, och priset betalas aldrig i produktion.
+
+Det tydliggör principen. Ett skydd mot de egna misstagen hör inte hemma i produktionskoden, men ett skydd mot omvärlden gör det. Kontrollen av `dt` i `Game.update` i Ripe Tomato är ett skydd mot egna misstag. Om den ska finnas kvar, hör den hemma i ett test eller bakom Vites `import.meta.env.DEV`.
+
+### Samma språk på båda sidor
+
+Webben är ovanlig på en punkt: JavaScript körs både i webbläsaren och i Node. En modul kan importeras på båda sidor, och koden ser likadan ut oavsett var den körs. Det är praktiskt, men det gör det lätt att glömma på vilken sida av gränsen en rad faktiskt körs.
+
+Ett valideringsschema som delas mellan klient och server visar skillnaden tydligt. Det är samma kod, men den har två helt olika syften:
+
+```js
+// shared/commentSchema.js: imported by both the client and the server.
+import { z } from 'zod'
+
+export const commentSchema = z.object({
+  text: z.string().min(1).max(2000),
+})
+```
+
+```js
+// Client: gives the user immediate feedback. It protects nothing, since anyone can
+// send a request without going through the client.
+const result = commentSchema.safeParse({ text: textarea.value })
+if (!result.success) {
+  showError(result.error)
+}
+```
+
+```js
+// Server: the actual protection. This is where the trust boundary is.
+app.post('/comments', async (req, res) => {
+  const { text } = commentSchema.parse(req.body)
+  // ...
+})
+```
+
+Att schemat delas är ett bra val, eftersom reglerna bara beskrivs på ett ställe. Men kontrollen i klienten är användarupplevelse och kontrollen på servern är säkerhet. Om kontrollen på servern tas bort "eftersom klienten redan validerar", finns inget skydd kvar.
+
+### Gränserna i vanliga webbarkitekturer
+
+Var gränserna går beror på hur applikationen är byggd. För de vanligaste webbarkitekturerna ser det ut så här:
+
+| Arkitektur | Gränser | Vad det betyder i praktiken |
+| --- | --- | --- |
+| Statisk sida eller spel som bara körs i klienten, som Ripe Tomato | inga, så länge ingen data hämtas utifrån | verktyg och typer räcker. Inget skydd i klienten kan stoppa användaren |
+| Serverrenderad app, som Express med Handlebars | requesten in till servern | validering, behörighet och projektion av data vid routen. Mallmotorn avgör hur mycket vyn kan göra |
+| SPA mot ett REST-API, som React eller Vue med Express | requesten in till API:t, och renderingen av data från API:t i klienten | API:t är gränsen för säkerhet, och klienten måste koda data från andra användare. Validering i klienten är användarupplevelse |
+| Ramverk som blandar klient och server, som Next.js, Remix eller SvelteKit | varje serverfunktion som klienten kan anropa, och varje import som kan dra med serverkod till klienten | gränsen syns inte i katalogstrukturen. Verktyg som `server-only` och lintregler gör den synlig |
+
+Tabellen visar att samma webbprogrammerare kan arbeta på båda sidor av en gräns under en och samma dag. En regel som "frontendkod behöver inga kontroller" eller "backendkod ska validera allt" hjälper då inte. Frågan måste ställas om varje del av koden.
+
+### Frontend och backend är en ungefärlig indelning
+
+Indelningen efter roll stämmer för det mesta, eftersom klientkod oftast körs på användarens enhet och serverkod oftast tar emot requests. Men den leder till två typiska misstag, ett från vardera hållet:
+
+| Misstag | Typiskt för | Följd | Rätt fråga |
+| --- | --- | --- | --- |
+| "Validering i klienten skyddar servern" | frontend, och den som delar ett schema och tar bort kontrollen på servern | vem som helst kan skicka en request utan att gå via klienten | vem kontrollerar miljön? |
+| "Klientkod har inga förtroendegränser" | frontend | XSS när innehåll från andra renderas som HTML | var kommer datan ifrån? |
+| "Varje lager ska validera och kopiera" | backend | ceremoni och dubbelarbete i kod som bara den egna koden anropar | vem anropar koden? |
+| "Det här är bara ett funktionsanrop" | båda, med ramverk som blandar klient och server | en publik ändpunkt utan validering eller behörighetskontroll | vem anropar koden? |
+
+Slutsatsen är att rätt svar följer gränserna och inte rollen. Bakom en gräns gäller samma villkor som i Ripe Tomato, oavsett om koden körs i webbläsaren eller på servern. Vid en gräns gäller det som gäller för Express, även i en React-komponent. Ripe Tomato är därför inte representativt för frontend i allmänhet. Det är det renaste fallet, där all kod ligger bakom en gräns, och därför blev slutsatserna så entydiga.
 
 ## Språken gör olika mycket av jobbet
 
@@ -338,12 +477,14 @@ Den sista punkten är skälet till att granskningen behövs även när alla meka
 
 ## Sammanfattning
 
-Ett designbeslut kan upprätthållas på flera nivåer: i språket, i byggstrukturen, med statisk analys, med tester, med kontroller i körande kod eller genom konvention. Ju tidigare nivå, desto snabbare återkoppling och desto mindre kod som körs i onödan. Kontroller i körande kod är rätt vid förtroendegränser, i bibliotek och när säkerhet står på spel, men inte som ett allmänt skydd mot den egna kodens misstag. Var förtroendegränserna går beror på sammanhanget. I ett spel som körs helt i klienten finns de knappt, medan de i en Express-app finns vid varje request. Därför kan samma princip leda till att DTO:er väljs bort i det ena fallet och krävs i det andra. Hur mycket som behöver kontrolleras av verktyg beror på språket. I JavaScript, där språket ger minst hjälp, ger verktygen mest.
+Ett designbeslut kan upprätthållas på flera nivåer: i språket, i byggstrukturen, med statisk analys, med tester, med kontroller i körande kod eller genom konvention. Ju tidigare nivå, desto snabbare återkoppling och desto mindre kod som körs i onödan. Kontroller i körande kod är rätt vid förtroendegränser, i bibliotek och när säkerhet står på spel, men inte som ett allmänt skydd mot den egna kodens misstag. Var förtroendegränserna går beror på sammanhanget, och det avgörs av tre frågor: vem som kontrollerar miljön, var datan kommer ifrån och vem som anropar koden. I ett spel som körs helt i klienten finns gränserna knappt, medan de i en Express-app finns vid varje request. Därför kan samma princip leda till att DTO:er väljs bort i det ena fallet och krävs i det andra. Indelningen i frontend och backend är ett ungefärligt mått på samma sak. Den stämmer ofta, men frontend har också gränser, och det mesta av backend ligger bakom gränsen. Hur mycket som behöver kontrolleras av verktyg beror slutligen på språket. I JavaScript, där språket ger minst hjälp, ger verktygen mest.
 
-Två kontrollfrågor fungerar oavsett språk:
+Tre kontrollfrågor fungerar oavsett språk och roll:
+
+> Var går gränsen, och på vilken sida av den ligger koden?
 
 > Kan regeln uttryckas så att ett verktyg kontrollerar den?
 
 > Om skyddet måste finnas i körande kod: skyddar det mot något utanför min kontroll?
 
-Om svaret på den första frågan är ja, hör regeln hemma i verktygen. Om svaret på den andra är nej, är skyddet troligen onödigt.
+Bakom en gräns hör reglerna hemma i verktygen, om de kan uttryckas där. Vid en gräns behövs kontroller i körande kod, och där kan inget verktyg ersätta dem. Om svaret på den sista frågan är nej, är skyddet troligen onödigt.
