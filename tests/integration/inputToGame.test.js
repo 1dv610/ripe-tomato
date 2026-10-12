@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { GameController } from '@/controllers/GameController.js'
 import { KeyboardInput } from '@/controllers/KeyboardInput.js'
 import { PointerInput } from '@/controllers/PointerInput.js'
+import { createFrame } from '@/frame.js'
 import { Game } from '@/models/Game.js'
 import { GameStatus } from '@/models/GameStatus.js'
 import { Crate } from '@/models/obstacles/Crate.js'
@@ -23,13 +24,14 @@ const setup = (obstacles = []) => {
   const keyboard = new KeyboardInput()
   const pointer = new PointerInput()
   const controller = new GameController(game, camera, keyboard, pointer)
+  // The real loop, without a view: drawing only reads the game, and these tests read it directly.
+  const runFrame = createFrame(controller, game, { draw: () => {} })
 
   /**
-   * Runs the loop's input and simulation steps for one 60th of a second.
+   * Runs one frame of the loop, a 60th of a second long.
    */
   const frame = () => {
-    controller.update()
-    game.update(1 / 60)
+    runFrame(1000 / 60)
   }
 
   return { game, camera, keyboard, pointer, frame }

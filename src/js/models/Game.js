@@ -141,12 +141,8 @@ export class Game {
    * Advances the game by the given time and applies its rules.
    *
    * @param {number} dt The elapsed time, in seconds.
-   * @throws {RangeError} Thrown if `dt` is negative or not a finite number.
    */
   update = (dt) => {
-    if (!Number.isFinite(dt) || dt < 0) {
-      throw new RangeError('dt must be a non-negative finite number.')
-    }
     if (this.isOver) {
       return
     }

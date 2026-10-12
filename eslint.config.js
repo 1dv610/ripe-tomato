@@ -118,6 +118,22 @@ export default [
     },
   },
   {
+    files: ['src/js/frame.js'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['p5', '**/index.js'],
+              message: "The loop's contract is tested without p5. index.js hands over p5's clock as a number.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['src/js/controllers/**/*.js'],
     rules: {
       'no-restricted-imports': [

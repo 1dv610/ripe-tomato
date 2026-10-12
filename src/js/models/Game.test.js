@@ -85,13 +85,6 @@ describe('Game', () => {
     expect(game.status).toBe(GameStatus.PLAYING)
   })
 
-  it('rejects a negative or non-finite time step', () => {
-    const game = new Game(() => ({ obstacles: [], finishX: 10 }))
-
-    expect(() => game.update(-1)).toThrow(RangeError)
-    expect(() => game.update(Number.NaN)).toThrow(RangeError)
-  })
-
   it('returns a copy of the obstacle list', () => {
     const game = new Game(() => ({ obstacles: [new Crate(2, 1, 1)], finishX: 10 }))
 

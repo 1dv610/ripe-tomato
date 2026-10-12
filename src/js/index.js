@@ -1,6 +1,7 @@
 import { GameController } from '@/controllers/GameController.js'
 import { KeyboardInput } from '@/controllers/KeyboardInput.js'
 import { PointerInput } from '@/controllers/PointerInput.js'
+import { createFrame } from '@/frame.js'
 import { Game } from '@/models/Game.js'
 import { createFirstLevel } from '@/models/levels.js'
 import { Camera } from '@/views/Camera.js'
@@ -26,12 +27,8 @@ const sketch = (p) => {
   const pointer = new PointerInput()
 
   // Created in setup, the earliest point where the p5 instance is ready.
-  /** @type {Game} */
-  let game
-  /** @type {GameView} */
-  let view
-  /** @type {GameController} */
-  let controller
+  /** @type {(deltaTimeMs: number) => void} */
+  let frame
 
   /**
    * Whether the pointer is over the canvas. p5 reports presses anywhere on the page.
@@ -48,9 +45,10 @@ const sketch = (p) => {
     p.createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT)
     const camera = new Camera(p.height)
 
-    game = new Game(createFirstLevel)
-    view = new GameView(p, game, camera)
-    controller = new GameController(game, camera, keyboard, pointer)
+    const game = new Game(createFirstLevel)
+    const view = new GameView(p, game, camera)
+    const controller = new GameController(game, camera, keyboard, pointer)
+    frame = createFrame(controller, game, view)
 
     // Keys released while the window is out of focus never send a release event.
     window.addEventListener('blur', keyboard.reset)
@@ -105,12 +103,10 @@ const sketch = (p) => {
   }
 
   /**
-   * Called by p5.js once per animation frame. The order is the loop's whole contract.
+   * Called by p5.js once per animation frame. Hands over p5's clock, in milliseconds, to the frame.
    */
   p.draw = () => {
-    controller.update() // 1. Apply the input buffered since the last frame.
-    game.update(p.deltaTime / 1000) // 2. Advance the simulation, in seconds.
-    view.draw() // 3. Render the new state.
+    frame(p.deltaTime)
   }
 }
 
