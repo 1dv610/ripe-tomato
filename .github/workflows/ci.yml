@@ -1,7 +1,7 @@
 # Runs the same checks as a developer would locally, so a change that breaks the
 # architecture rules in eslint.config.js, the formatting, a test or the build is
-# stopped before it can be merged. Make the "check" job a required status check in
-# the branch protection for main to enforce it.
+# stopped before it can be merged. Make the "check" and "e2e" jobs required status
+# checks in the branch protection for main to enforce it.
 name: CI
 
 on:
@@ -39,3 +39,31 @@ jobs:
       - run: npm run test:run
 
       - run: npm run build
+
+  # A separate job: it needs a browser, takes longer and runs in real time, so a slow runner
+  # can make it flaky. Keeping it apart shows at a glance whether a failure is in the fast
+  # checks or in the browser.
+  e2e:
+    name: End-to-end tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run test:e2e
+
+      # The report shows every step of a failed test, with a trace of the retry.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

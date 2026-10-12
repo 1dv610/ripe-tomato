@@ -158,6 +158,11 @@ dist/
 tmp/
 temp/
 
+# Playwright output
+test-results/
+playwright-report/
+blob-report/
+
 # Personal scratch files, not part of the project
 .sandbox/
 
