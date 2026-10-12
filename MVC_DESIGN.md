@@ -152,7 +152,7 @@ src/js/
 Namnkonventionerna:
 
 - **PascalCase för filer som exporterar en klass** (`Tomato.js`), **camelCase för moduler med funktioner** (`levels.js`, `geometry.js`).
-- **Pluralis på rollmapparna** (`models/`, `views/`, `controllers/`), som i den tidigare koden. En undermapp (`obstacles/`) införs när en roll får en grupp klasser som hör ihop.
+- **En mapp per roll** (`models/`, `views/`, `controllers/`), inte en mapp per del av spelet. Lint-reglerna för beroenderiktningen (se [Reglerna kontrolleras av lintern](#reglerna-kontrolleras-av-lintern)) uttrycks som sökvägsmönster, `src/js/models/**` får inte importera från `**/views/**`. Om en `tomato/`-mapp innehöll både modell och vy skulle reglerna behöva bygga på filnamn i stället, och de blir sköra. Mappstrukturen visar dessutom MVC-uppdelningen direkt för den som öppnar `src/js`. En undermapp (`obstacles/`) införs när en roll får en grupp klasser som hör ihop.
 - **Domännamn framför generiska namn.** `Tomato` i stället för `GameCharacter`: det finns bara en sorts karaktär, och "Game" i namnet säger inget som inte redan framgår av sammanhanget. Vyklasser heter som det de ritar, plus `View` (`TomatoView`).
 - **Tester ligger bredvid koden de testar,** `Tomato.test.js` bredvid `Tomato.js`. Vitest är redan konfigurerat för `**/*.test.js`.
 
