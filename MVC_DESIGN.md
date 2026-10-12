@@ -1,5 +1,8 @@
 # Ripe Tomato: en MVC-design för en spelloop
 
+> [!NOTE]
+> Skrivet efter pass 3.
+
 Det här dokumentet beskriver MVC-arkitekturen för Ripe Tomato. Designen togs fram utan hänsyn till den tidigare koden och är implementerad på grenen `spike/alt-mvc`. Kodexemplen är förkortade utdrag ur den koden. Avsnittet [Från tidigare kod](#från-tidigare-kod) visar vad som har ändrats. Diskussionen om MVC i request/response jämfört med en spelloop finns i [REFLECTION_SESSION_2.md](REFLECTION_SESSION_2.md). Här är fokus i stället konkret: vilka klasser som finns, vad de ansvarar för, vad filerna heter och hur objekten samverkar under en frame.
 
 ## Krav

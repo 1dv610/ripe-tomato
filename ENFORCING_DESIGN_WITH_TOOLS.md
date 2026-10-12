@@ -1,5 +1,8 @@
 # Låt verktygen hålla reglerna
 
+> [!NOTE]
+> Skrivet efter pass 3.
+
 Den här texten handlar om var ett designbeslut ska upprätthållas. Ett beslut som "modellen får inte bero på vyn" kan stå i ett dokument, byggas in i koden som skydd som körs varje gång programmet körs, eller kontrolleras av ett verktyg innan koden ens har körts. Valet påverkar hur lätt koden är att läsa, vad den kostar att köra och om regeln faktiskt följs. Därför hör frågan hemma i en kurs om mjukvarukvalitet: en regel som ingen kontrollerar är en önskan, och ett skydd som gör koden svårare att läsa kan kosta mer än det ger.
 
 Exemplen kommer från Ripe Tomato, där arkitekturen beskrivs i [MVC_DESIGN.md](MVC_DESIGN.md). Ett eget avsnitt visar varför slutsatserna beror på var förtroendegränserna går. Det jämför spelet med en Express-app, den MVC-variant som jämförs med spelloopen i [REFLECTION_SESSION_2.md](REFLECTION_SESSION_2.md), och prövar om det går att generalisera efter roll, frontend och backend. Avsnittet om andra språk visar att samma fråga får olika svar beroende på vad språket självt kan uttrycka.
