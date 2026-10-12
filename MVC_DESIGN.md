@@ -154,7 +154,7 @@ Namnkonventionerna:
 - **PascalCase för filer som exporterar en klass** (`Tomato.js`), **camelCase för moduler med funktioner** (`levels.js`, `geometry.js`).
 - **En mapp per roll** (`models/`, `views/`, `controllers/`), inte en mapp per del av spelet. Lint-reglerna för beroenderiktningen (se [Reglerna kontrolleras av lintern](#reglerna-kontrolleras-av-lintern)) uttrycks som sökvägsmönster, `src/js/models/**` får inte importera från `**/views/**`. Om en `tomato/`-mapp innehöll både modell och vy skulle reglerna behöva bygga på filnamn i stället, och de blir sköra. Mappstrukturen visar dessutom MVC-uppdelningen direkt för den som öppnar `src/js`. En undermapp (`obstacles/`) införs när en roll får en grupp klasser som hör ihop.
 - **Domännamn framför generiska namn.** `Tomato` i stället för `GameCharacter`: det finns bara en sorts karaktär, och "Game" i namnet säger inget som inte redan framgår av sammanhanget. Vyklasser heter som det de ritar, plus `View` (`TomatoView`).
-- **Tester ligger bredvid koden de testar,** `Tomato.test.js` bredvid `Tomato.js`. Vitest är redan konfigurerat för `**/*.test.js`.
+- **Enhetstester ligger bredvid koden de testar,** `Tomato.test.js` bredvid `Tomato.js`, en testfil per klass eller modul. **Integrationstester ligger i `tests/integration/`** i projektets rot, eftersom de inte hör till någon enskild fil. Vitest letar efter `*.test.js` i både `src/` och `tests/`. Se [Testbarhet](#testbarhet).
 
 ## Modellen
 
@@ -956,6 +956,14 @@ src/js/
 | `GameController` | att avsikter blir rätt kommandon, med en fejkad `Game` och `Camera` | nej |
 | `Camera` | `canvasToWorld(worldToCanvas(p))` ger `p` tillbaka | nej |
 | vyerna | att rätt ritanrop görs, med en mockad `p` | mockad |
+
+### Integrationstester
+
+Enhetstesterna av `GameController` använder en fejkad `Game` och en fejkad `Camera`. JavaScript kontrollerar inte att en fejk har samma gränssnitt som klassen den ersätter. Om `Game` byter namn på `steer()` eller ändrar vad `isOver` betyder går controllertesterna fortfarande igenom, men spelet slutar fungera. `tests/integration/inputToGame.test.js` kopplar därför ihop riktiga `KeyboardInput`, `PointerInput`, `GameController`, `Game` och `Camera` på samma sätt som `index.js` och kör loopen utan p5. Testerna kontrollerar att ett tangenttryck får tomaten att hoppa, att en nedhållen musknapp till höger om tomaten får den att gå åt höger och att ett tangenttryck efter en kollision startar om spelet.
+
+Modellens delar behöver inga egna integrationstester. `Game.test.js` använder riktiga hinder, och `levels.test.js` spelar igenom hela banan med riktiga objekt.
+
+Kopplingen till p5 i `index.js` testas inte automatiskt. Det skulle kräva E2E-tester i en riktig webbläsare, och koden är för tunn för att det ska löna sig. Ett fel i ritordningen i `draw()`, eller en saknad `blur`-lyssnare, märks alltså bara när spelet körs.
 
 ```js
 import { describe, expect, it } from 'vitest'
