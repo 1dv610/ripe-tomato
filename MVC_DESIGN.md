@@ -122,7 +122,7 @@ Typimporter i JSDoc (`@typedef {import('@/views/Camera.js').Camera}`) kontroller
 > **Prova själv.** Lägg till `import p5 from 'p5'` överst i `src/js/models/Tomato.js`. Editorn markerar raden direkt, och `npm run lint` misslyckas med meddelandet att modellen ska kunna köras utan gränssnittet. Prova sedan `this.#game.jump()` i `GameView.draw()`, eller `Math.random()` i `Bird.update()`. Ta bort ändringarna efteråt.
 
 > [!IMPORTANT]
-> Lintern skyddar bara det den körs på. `npm run lint` och editorn täcker utvecklingen. Pipelinen i `.github/workflows/ci.yml` kör lint, formateringskontroll, tester och bygge vid varje push till `main` och i varje pull request. Först när jobbet görs till en *required status check* i GitHubs branch protection för `main` kan en pull request som bryter mot reglerna inte slås ihop. Det är en inställning i repot och inte en fil. En regel kan dessutom stängas av med en `eslint-disable`-kommentar, så granskningen behövs fortfarande.
+> Lintern skyddar bara det den körs på. `npm run lint` och editorn täcker utvecklingen. Pipelinen i `.github/workflows/ci.yml` kör lint, formateringskontroll, tester och bygge vid varje push till `main` och i varje pull request, och E2E-testerna i ett eget jobb. Först när jobben görs till *required status checks* i GitHubs branch protection för `main` kan en pull request som bryter mot reglerna inte slås ihop. Det är en inställning i repot och inte en fil. En regel kan dessutom stängas av med en `eslint-disable`-kommentar, så granskningen behövs fortfarande.
 
 ## Katalogstruktur och namn
 
@@ -157,7 +157,7 @@ Namnkonventionerna:
 - **PascalCase för filer som exporterar en klass** (`Tomato.js`), **camelCase för moduler med funktioner** (`levels.js`, `geometry.js`).
 - **En mapp per roll** (`models/`, `views/`, `controllers/`), inte en mapp per del av spelet. Lint-reglerna för beroenderiktningen (se [Reglerna kontrolleras av lintern](#reglerna-kontrolleras-av-lintern)) uttrycks som sökvägsmönster, `src/js/models/**` får inte importera från `**/views/**`. Om en `tomato/`-mapp innehöll både modell och vy skulle reglerna behöva bygga på filnamn i stället, och de blir sköra. Mappstrukturen visar dessutom MVC-uppdelningen direkt för den som öppnar `src/js`. En undermapp (`obstacles/`) införs när en roll får en grupp klasser som hör ihop.
 - **Domännamn framför generiska namn.** `Tomato` i stället för `GameCharacter`: det finns bara en sorts karaktär, och "Game" i namnet säger inget som inte redan framgår av sammanhanget. Vyklasser heter som det de ritar, plus `View` (`TomatoView`).
-- **Enhetstester ligger bredvid koden de testar,** `Tomato.test.js` bredvid `Tomato.js`, en testfil per klass eller modul. **Integrationstester ligger i `tests/integration/`** i projektets rot, eftersom de inte hör till någon enskild fil. Vitest letar efter `*.test.js` i både `src/` och `tests/`. Se [Testbarhet](#testbarhet).
+- **Enhetstester ligger bredvid koden de testar,** `Tomato.test.js` bredvid `Tomato.js`, en testfil per klass eller modul. **Integrationstester ligger i `tests/integration/`** och **E2E-tester i `tests/e2e/`** i projektets rot, eftersom de inte hör till någon enskild fil. Vitest letar efter `*.test.js` i både `src/` och `tests/`, och Playwright kör `*.spec.js` i `tests/e2e/`. Se [Testbarhet](#testbarhet).
 
 ## Modellen
 
@@ -964,14 +964,6 @@ src/js/
 | `Camera` | `canvasToWorld(worldToCanvas(p))` ger `p` tillbaka | nej |
 | vyerna | att rätt ritanrop görs, med en mockad `p` | mockad |
 
-### Integrationstester
-
-Enhetstesterna av `GameController` använder en fejkad `Game` och en fejkad `Camera`. JavaScript kontrollerar inte att en fejk har samma gränssnitt som klassen den ersätter. Om `Game` byter namn på `steer()` eller ändrar vad `isOver` betyder går controllertesterna fortfarande igenom, men spelet slutar fungera. `tests/integration/inputToGame.test.js` kopplar därför ihop riktiga `KeyboardInput`, `PointerInput`, `GameController`, `Game` och `Camera` på samma sätt som `index.js` och kör loopen utan p5. Testerna kontrollerar att ett tangenttryck får tomaten att hoppa, att en nedhållen musknapp till höger om tomaten får den att gå åt höger och att ett tangenttryck efter en kollision startar om spelet.
-
-Modellens delar behöver inga egna integrationstester. `Game.test.js` använder riktiga hinder, och `levels.test.js` spelar igenom hela banan med riktiga objekt.
-
-Kopplingen till p5 i `index.js` testas inte automatiskt. Det skulle kräva E2E-tester i en riktig webbläsare, och koden är för tunn för att det ska löna sig. Ett fel i ritordningen i `draw()`, eller en saknad `blur`-lyssnare, märks alltså bara när spelet körs.
-
 ```js
 import { describe, expect, it } from 'vitest'
 import { Tomato } from '@/models/Tomato.js'
@@ -1007,6 +999,42 @@ describe('Tomato', () => {
 })
 ```
 
+### Integrationstester
+
+Enhetstesterna av `GameController` använder en fejkad `Game` och en fejkad `Camera`. JavaScript kontrollerar inte att en fejk har samma gränssnitt som klassen den ersätter. Om `Game` byter namn på `steer()` eller ändrar vad `isOver` betyder går controllertesterna fortfarande igenom, men spelet slutar fungera. `tests/integration/inputToGame.test.js` kopplar därför ihop riktiga `KeyboardInput`, `PointerInput`, `GameController`, `Game` och `Camera` på samma sätt som `index.js` och kör loopen utan p5. Testerna kontrollerar att ett tangenttryck får tomaten att hoppa, att en nedhållen musknapp till höger om tomaten får den att gå åt höger och att ett tangenttryck efter en kollision startar om spelet.
+
+Modellens delar behöver inga egna integrationstester. `Game.test.js` använder riktiga hinder, och `levels.test.js` spelar igenom hela banan med riktiga objekt.
+
+### E2E-tester
+
+Ett *E2E-test* (*end-to-end*) kör hela programmet som en användare gör: det byggda spelet i en riktig webbläsare, med riktiga tangenttryck och musklick. Enhetstesterna och integrationstesterna når inte `index.js`. Kopplingen till p5, loopen i `draw()` och det som bara webbläsaren gör, som att rulla sidan eller tappa fokus, testas därför bara på den här nivån.
+
+För ett så litet spel är E2E-tester i överkant. Koden i `index.js` är tunn och syns direkt när spelet körs. Testerna finns här för att visa hur nivån fungerar och vad den tillför.
+
+Testerna ligger i `tests/e2e/game.spec.js` och körs med [Playwright](https://playwright.dev/) (`npm run test:e2e`). Filändelsen `.spec.js` skiljer dem från Vitests `.test.js`, så de två verktygen hittar bara sina egna filer. `playwright.config.js` bygger spelet, startar `vite preview` och kör testerna i Chromium.
+
+Spelet ritar allt på en canvas, så det finns ingen DOM att fråga efter tomaten eller meddelandena. Testerna tittar i stället på pixlarna, precis som spelaren. Tomaten hittas på sin röda färg, och det mörka fältet med meddelandet syns på en pixel mitt på canvasens vänsterkant. Testerna vet alltså vilka färger vyerna använder, men ingenting om koden bakom dem.
+
+| Test | Vad i `index.js` eller webbläsaren det skyddar |
+| --- | --- |
+| tomaten står på marken till vänster, inga fel i konsolen | att `setup()` kopplar ihop delarna och att loopen ritar |
+| Space får tomaten att hoppa | kedjan `keyPressed` → `KeyboardInput` → loopen → `Game` → vyn |
+| högerpil får tomaten att gå åt höger | samma kedja för en nedhållen tangent |
+| Space och pilar rullar inte sidan | `return false` i `keyPressed`, som får p5 att anropa `preventDefault()` |
+| klick på canvasen ger ett hopp, klick bredvid gör det inte | kontrollen `isPointerInsideCanvas()` |
+| tomaten stannar när fönstret tappar fokus | `blur`-lyssnaren som anropar `keyboard.reset` |
+| fältet visas efter en krasch, och Space startar om | hela förloppet från kollision till omstart |
+
+Varje test är kontrollerat mot en avsiktligt trasig `index.js`. Utan `return false`, utan `blur`-lyssnaren eller utan kontrollen av klickets position misslyckas precis det test som hör till respektive rad, och inga andra.
+
+E2E-tester har ett pris som de andra nivåerna inte har:
+- **De är långsamma.** Sju tester tar ungefär sex sekunder, plus tiden för bygget. Vitests 70 enhets- och integrationstester tar tillsammans under en tiondels sekund att köra.
+- **De kan vara instabila.** Spelet går i realtid, så en långsam dator kan missa en frame. Testerna väntar därför med `expect.poll` tills ett villkor uppfylls i stället för en fast tid, och CI gör upp till två nya försök.
+- **De säger mindre om var felet är.** Ett misslyckat E2E-test säger att något i kedjan är fel men inte vad. Därför körs de i ett eget jobb i CI, och Playwrights rapport med en trace av varje steg sparas när ett test misslyckas.
+- **De är känsliga för ändringar i utseendet.** Byter tomaten färg slutar testerna hitta den. Det är priset för att testa utifrån.
+
+Därför bör E2E-testerna vara få och täcka det som ingen annan nivå når. Logiken testas längre ned, där testerna är snabba och exakta.
+
 ## Från tidigare kod
 
 | Tidigare (`main`) | Nu (`spike/alt-mvc`) |
@@ -1021,7 +1049,7 @@ describe('Tomato', () => {
 ## Öppna frågor
 
 - **Pekskärmar.** p5 2.x bygger på pointer events, så `mousePressed`, `mouseDragged` och `mouseReleased` anropas även vid touch. Det har inte provats på en riktig pekskärm.
-- **Branch protection.** Pipelinen finns, men den stoppar ingenting förrän jobbet görs till en obligatorisk statuskontroll för `main` i GitHub.
+- **Branch protection.** Pipelinen finns, men den stoppar ingenting förrän jobben görs till obligatoriska statuskontroller för `main` i GitHub.
 - **Fast tidssteg.** Behövs först om spelomgångar ska spelas upp exakt igen, till exempel för att verifiera highscores. Se [Kompromisser](#kompromisser).
 - **Flera banor och menyer.** Se `Scene`-resonemanget under [Fler lager?](#fler-lager).
 - **Ljud och partiklar.** Det är presentation och hör hemma i vyn. Om vyn behöver veta *att* något hände, inte bara *hur* det ser ut nu, kan modellen exponera händelser som `game.events` som vyn läser och tömmer varje frame. Modellen behöver ändå inte känna till vyn.
