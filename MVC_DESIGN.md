@@ -163,24 +163,26 @@ Namnkonventionerna:
 
 Modellen arbetar i **world space**: enheten är tomater, y-axeln pekar uppåt och marken ligger vid `y = 0`. Tid mäts i sekunder. Modellen vet inget om pixlar, tangenter eller p5.
 
+Klassdiagrammen följer UML:
+- **Attribut och parametrar** skrivs `namn : Typ`, och returtypen står efter parameterlistan.
+- **Publika attribut** motsvarar getters och är alltså skrivskyddade, `{readOnly}` i UML. Det privata fältet bakom en getter visas inte separat.
+- **Härledda attribut** markeras med `/`. De beräknas och lagras inte, till exempel `/isOver`.
+- **Referenser till andra klasser** visas som associationer med rollnamn och multiplicitet, inte som attribut.
+- **Abstrakta operationer** är kursiverade.
+- **Privata statiska konstanter och konstruktorer** är utelämnade.
+
 ```mermaid
 classDiagram
     direction TB
 
     class Game {
-        -Function createLevel
-        -Tomato tomato
-        -Obstacle[] obstacles
-        -number finishX
-        -string status
-        +Tomato tomato
-        +Obstacle[] obstacles
-        +number finishX
-        +string status
-        +boolean isOver
-        +update(dt)
+        -createLevel : Function
+        +finishX : number
+        +status : GameStatus
+        +/isOver : boolean
+        +update(dt : number)
         +jump()
-        +steer(direction)
+        +steer(direction : number)
         +restart()
     }
 
@@ -192,48 +194,47 @@ classDiagram
     }
 
     class Tomato {
-        -number x
-        -number y
-        -number velocityY
-        -number direction
-        +number radius
-        +boolean isOnGround
-        +update(dt)
+        +x : number
+        +y : number
+        +radius : number
+        +/isOnGround : boolean
+        -velocityY : number
+        -direction : number
+        +update(dt : number)
         +jump()
-        +steer(direction)
+        +steer(direction : number)
     }
 
     class Obstacle {
         <<abstract>>
-        +number x
-        +number width
-        +update(dt)
-        +collidesWith(tomato) boolean
+        +x : number
+        +width : number
+        +update(dt : number)
+        +collidesWith(tomato : Tomato) boolean*
     }
 
     class Crate {
-        +number height
-        +collidesWith(tomato) boolean
+        +height : number
+        +collidesWith(tomato : Tomato) boolean
     }
 
     class Bird {
-        -number baseY
-        -number amplitude
-        -number period
-        -number elapsed
-        +number y
-        +number height
-        +update(dt)
-        +collidesWith(tomato) boolean
+        -baseY : number
+        -amplitude : number
+        -period : number
+        -elapsed : number
+        +/y : number
+        +height : number
+        +update(dt : number)
+        +collidesWith(tomato : Tomato) boolean
     }
 
     class Pit {
-        +collidesWith(tomato) boolean
+        +collidesWith(tomato : Tomato) boolean
     }
 
-    Game --> GameStatus
-    Game *-- Tomato
-    Game *-- "0..*" Obstacle
+    Game "1" *-- "1" Tomato : +tomato
+    Game "1" *-- "0..*" Obstacle : +obstacles
     Obstacle <|-- Crate
     Obstacle <|-- Bird
     Obstacle <|-- Pit
@@ -412,44 +413,43 @@ classDiagram
     direction LR
 
     class GameView {
-        -p5 p
-        -Game game
-        -Camera camera
-        -TomatoView tomatoView
-        -ObstacleView obstacleView
-        -HudView hudView
+        -p : p5
         +draw()
     }
 
     class Camera {
-        -number offsetX
-        +number groundY
-        +follow(worldX)
-        +worldToCanvas(x, y) CanvasCoordinates
-        +canvasToWorld(x, y) WorldCoordinates
-        +toPixels(length) number
+        -canvasHeight : number
+        -offsetX : number
+        +/groundY : number
+        +follow(worldX : number)
+        +worldToCanvas(x : number, y : number) CanvasCoordinates
+        +canvasToWorld(x : number, y : number) WorldCoordinates
+        +toPixels(length : number) number
     }
 
     class TomatoView {
-        +draw(tomato)
+        -p : p5
+        +draw(tomato : Tomato)
     }
 
     class ObstacleView {
-        -Map renderers
-        +draw(obstacle)
+        -p : p5
+        -renderers : Map
+        +draw(obstacle : Obstacle)
     }
 
     class HudView {
-        +draw(game)
+        -p : p5
+        +draw(game : Game)
     }
 
-    GameView *-- TomatoView
-    GameView *-- ObstacleView
-    GameView *-- HudView
-    GameView --> Camera
-    TomatoView --> Camera
-    ObstacleView --> Camera
-    GameView ..> Game : läser
+    GameView "1" *-- "1" TomatoView : -tomatoView
+    GameView "1" *-- "1" ObstacleView : -obstacleView
+    GameView "1" *-- "1" HudView : -hudView
+    GameView --> "1" Camera : -camera
+    TomatoView --> "1" Camera : -camera
+    ObstacleView --> "1" Camera : -camera
+    GameView --> "1" Game : -game
 ```
 
 ### Ritordningen
@@ -542,40 +542,35 @@ classDiagram
     direction LR
 
     class GameController {
-        -Game game
-        -Camera camera
-        -KeyboardInput keyboard
-        -PointerInput pointer
         +update()
         -pointerDirection() number
     }
 
     class KeyboardInput {
-        -Set held
-        -boolean jumpRequested
-        +number direction
-        +press(key)
-        +release(key)
+        -held : Set~KeyAction~
+        -jumpRequested : boolean
+        +/direction : number
+        +press(key : string)
+        +release(key : string)
         +reset()
         +consumeJump() boolean
     }
 
     class PointerInput {
-        -boolean down
-        -boolean pressRequested
-        +number x
-        +number y
-        +boolean isDown
-        +press(x, y)
-        +move(x, y)
+        -pressRequested : boolean
+        +x : number
+        +y : number
+        +isDown : boolean
+        +press(x : number, y : number)
+        +move(x : number, y : number)
         +release()
         +consumePress() boolean
     }
 
-    GameController --> KeyboardInput
-    GameController --> PointerInput
-    GameController --> Camera
-    GameController --> Game : kommandon
+    GameController --> "1" KeyboardInput : -keyboard
+    GameController --> "1" PointerInput : -pointer
+    GameController --> "1" Camera : -camera
+    GameController --> "1" Game : -game
 ```
 
 ### Styrning
