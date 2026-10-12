@@ -85,7 +85,31 @@ Reglerna i `eslint.config.js`:
 
 Mönstren är i gitignore-stil (`**/views/**`) och fångar därför både alias-importer (`@/views/GameView.js`) och relativa (`../views/GameView.js`). Undantaget för `Camera` uttrycks med negation (`!**/views/Camera.js`).
 
-Reglerna för globala variabler och egenskaper går längre än importerna. De håller modellen fri från webbläsaren, så att den kan köras i Node, och fri från dolda källor till tid och slump, så att den är deterministisk. Tid kommer via `update(dt)`, och slump ska injiceras som en funktion.
+Reglerna för globala variabler och egenskaper går längre än importerna. Förbudet mot `window`, `document` och `fetch` håller modellen fri från webbläsaren, så att den kan köras i Node.
+
+Förbudet mot `Math.random`, `Date.now` och `performance.now` kan verka förvånande, eftersom de inte har något med gränssnittet att göra. De är ändå samma sorts beroende: de läser något från omgivningen som inte syns i metodens signatur. En metod som läser klockan själv har klockan som *dold indata*. Två anrop med samma argument kan då ge olika resultat, och den som läser signaturen kan inte se varför. Det får tre följder:
+
+- **Testerna blir svåra att skriva och opålitliga.** Ett test av hur långt tomaten hoppar måste antingen vänta på riktigt eller manipulera den globala klockan, och ett test av en slumpad bana kan gå igenom ena gången och misslyckas nästa. Med `update(dt)` stegar testet fram exakt den tid det vill. Så fungerar alla tester i `Game.test.js` och `levels.test.js`.
+- **Spelomgångar kan inte spelas upp igen.** Att verifiera en highscore genom att köra spelarens input genom samma modellkod på en server går bara om modellen ger samma resultat för samma indata.
+- **Klockan och slumpen tillhör körmiljön,** precis som `window`, inte spelets regler.
+
+Regeln om klockan inför inget nytt, utan kontrollerar beslutet att p5 äger klockan och modellen får tiden via `update(dt)`. Slump används inte i modellen i dag. Regeln finns för att `Math.random()` är det självklara första försöket när någon vill slumpa fram hinder. Alternativet är att injicera en slumpfunktion, på samma sätt som banan redan injiceras:
+
+```js
+// models/levels.js
+export const createRandomLevel = (random) => ({
+  finishX: 40,
+  obstacles: Array.from({ length: 8 }, (_, i) => new Crate(6 + i * 4 + random() * 2, 1, 1)),
+})
+
+// index.js: production uses the real generator.
+game = new Game(() => createRandomLevel(Math.random))
+
+// A test: a fixed sequence gives the same level every time.
+const game = new Game(() => createRandomLevel(() => 0.5))
+```
+
+Mönstret är etablerat i andra miljöer. Java har `java.time.Clock` och .NET har `TimeProvider`, så att klockan kan injiceras och bytas ut i tester.
 
 Importreglerna kan inte skilja på att läsa modellen och att ändra den, eftersom vyn har rätt att importera modellen. Därför matchar en `no-restricted-syntax`-regel anrop av modellens kommandon *på namn* med AST-selektorn `CallExpression > MemberExpression.callee[property.type='Identifier'][property.name=/^(jump|steer|restart|update)$/]`. `this.#game.jump()` fångas, men `this.#camera.follow(...)` och privata metoder (`this.#jump()`) gör det inte. Regeln är en heuristik och inte en typkontroll: listan måste hållas i takt med kommandona i `Game`, och en vy som av andra skäl anropar en metod som heter `update` får ett falskt larm. Ett eget ESLint-plugin skulle kunna vara mer exakt, men det vore mer kod att underhålla än risken motiverar.
 
