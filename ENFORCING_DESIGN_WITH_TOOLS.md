@@ -11,7 +11,7 @@ Exemplen kommer från Ripe Tomato, där arkitekturen beskrivs i [MVC_DESIGN.md](
 
 En arkitektur består till stor del av regler om vad som får känna till vad. I Ripe Tomato är de viktigaste att modellen inte känner till p5, vyerna eller kontrollerna, och att vyerna läser modellen men aldrig ändrar den. Reglerna är lätta att formulera. De är också lätta att bryta, och det sker sällan på en gång. Någon importerar `p5` i modellen "bara för att få `p.constrain`", eller låter en vy anropa `game.restart()` för att en knapp ska fungera. Var och en av genvägarna verkar ofarlig. Tillsammans kallas resultatet *arkitekturerosion*: strukturen bryts ned så långsamt att ingen märker när den slutade gälla.
 
-### Två reflexer som inte hjälper
+### Konvention eller skydd i koden
 
 Det finns två vanliga reaktioner på risken, och båda har brister.
 
@@ -101,7 +101,7 @@ ESLint läser inte koden som text utan som ett *abstrakt syntaxträd* (AST), dä
 
 #### Vad regeln inte fångar
 
-Linting är ingen *silver bullet*. Regeln ser bara den form av kod som selektorn beskriver, och samma sak går att skriva på andra sätt. Tabellen visar vad som händer när varianterna läggs i en fil i `views/` och lintern körs:
+Lintern löser inte allt. Regeln ser bara den form av kod som selektorn beskriver, och samma sak går att skriva på andra sätt. Tabellen visar vad som händer när varianterna läggs i en fil i `views/` och lintern körs:
 
 | Kod i en vy | Fångas av lintern? | När koden körs |
 | --- | --- | --- |
@@ -187,6 +187,8 @@ Resonemanget ovan betyder inte att kontroller i körande kod alltid är fel. Fö
 > En förtroendegräns är en plats i ett system där data eller anrop går från något du inte kontrollerar till något du kontrollerar. På den ena sidan har bara din egen kod varit inblandad, och där kan du lita på det koden garanterar, till exempel att ett värde är ett ändligt tal eller att en användare redan är inloggad. På den andra sidan kan vad som helst ha hänt.
 >
 > "Förtroende" betyder här inte att någon är ärlig eller oärlig, utan att du har kontroll över vad som hänt med datan. Även en välvillig användare kan skicka något oväntat, och en fientlig kan skicka vad som helst.
+>
+> Av samma skäl betyder "din egen kod" inte kod som du personligen har skrivit. När flera utvecklare arbetar i samma kodbas är kollegornas kod lika mycket din egen, så länge den går genom samma linter, typer, tester och CI som din. Det är kontrollerna, inte författaren, som avgör på vilken sida av gränsen koden ligger.
 >
 > Typiska förtroendegränser i en webbapplikation:
 >
