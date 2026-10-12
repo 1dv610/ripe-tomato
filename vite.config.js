@@ -14,8 +14,10 @@ export default defineConfig({
     emptyOutDir: true,
   },
   test: {
-    // root above scopes Vite's dev/build to src/, so include is relative to src/ too.
+    // root above scopes Vite's dev/build to src/. Scan from the project root instead, so the
+    // integration tests in tests/ are found next to the unit tests in src/.
+    dir: fileURLToPath(new URL('.', import.meta.url)),
     environment: 'jsdom',
-    include: ['**/*.test.js'],
+    include: ['src/**/*.test.js', 'tests/**/*.test.js'],
   },
 })

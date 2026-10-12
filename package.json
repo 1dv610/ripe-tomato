@@ -10,10 +10,10 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:match": "vitest run -t",
-    "lint": "eslint ./src --cache && stylelint \"src/**/*.css\" --cache",
-    "lint:fix": "eslint ./src --cache --fix && stylelint \"src/**/*.css\" --cache --fix",
-    "format": "prettier --write ./src",
-    "format:check": "prettier ./src --check"
+    "lint": "eslint ./src ./tests --cache && stylelint \"src/**/*.css\" --cache",
+    "lint:fix": "eslint ./src ./tests --cache --fix && stylelint \"src/**/*.css\" --cache --fix",
+    "format": "prettier --write ./src ./tests",
+    "format:check": "prettier ./src ./tests --check"
   },
   "contributors": [
     "Mats Lock <mats.loock@lnu.se>",

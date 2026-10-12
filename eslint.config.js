@@ -10,7 +10,7 @@ export default [
     // importantly it.only()/describe.only() — those silently skip every other test in
     // the file, with no error, which is exactly the kind of thing worth a linter for.
     ...vitest.configs.recommended,
-    files: ['src/**/*.test.js'],
+    files: ['src/**/*.test.js', 'tests/**/*.test.js'],
   },
   {
     ...html.configs['flat/recommended'],

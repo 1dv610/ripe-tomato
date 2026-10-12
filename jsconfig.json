@@ -4,5 +4,5 @@
       "@/*": ["./src/js/*"]
     }
   },
-  "include": ["src/**/*.js"]
+  "include": ["src/**/*.js", "tests/**/*.js"]
 }
