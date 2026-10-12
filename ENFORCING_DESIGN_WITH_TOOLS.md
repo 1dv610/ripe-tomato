@@ -99,6 +99,25 @@ Valet blev det sista alternativet. Det ger inte ett fullständigt skydd. Regeln 
 
 ESLint läser inte koden som text utan som ett *abstrakt syntaxträd* (AST), där varje del av koden, som ett anrop, ett namn eller en egenskap, är en nod med en typ. Selektorn väljer noder i det trädet, ungefär som en CSS-selektor väljer element i HTML. Den matchar ett anrop vars mottagare är ett objekt och vars metodnamn är ett av modellens kommandon. `this.#game.jump()` fångas, medan `this.#camera.follow(...)` och privata metoder som `this.#jump()` passerar.
 
+#### Vad regeln inte fångar
+
+Linting är ingen *silver bullet*. Regeln ser bara den form av kod som selektorn beskriver, och samma sak går att skriva på andra sätt. Tabellen visar vad som händer när varianterna läggs i en fil i `views/` och lintern körs:
+
+| Kod i en vy | Fångas av lintern? | När koden körs |
+| --- | --- | --- |
+| `game.jump()`, `game.tomato.steer(1)`, `game.obstacles[0].update(1)` | ja | |
+| `const { restart } = game; restart()` | nej | anropet fungerar, eftersom metoderna är arrow-funktioner som är bundna till instansen |
+| `game['jump']()` | nej | anropet fungerar |
+| `game.jump.call(game)` | nej | anropet fungerar |
+| `game.update = () => {}` | nej | metoden byts ut, eftersom en arrow-funktion i ett klassfält är en vanlig, skrivbar egenskap på objektet |
+| `game.tomato.x = 5` | nej | `TypeError`, eftersom `x` bara har en getter och moduler alltid körs i strict mode |
+
+Ett hål till syns inte i tabellen. `game.obstacles` returnerar en kopia av listan men inte av hindren i den, så vyn kommer åt samma `Bird`-objekt som modellen.
+
+Varianterna i tabellen syns inte som `objekt.namn()` i syntaxträdet. Ingen lista av namn kan därför täcka dem, varken en lista över förbjudna namn (en *deny-lista*) eller en lista över tillåtna (en *allow-lista*). En allow-lista skulle dessutom behöva räkna upp varje metod som vyerna anropar på vilket objekt som helst, eftersom regeln inte vet vilken typ mottagaren har. Det gäller hela p5-API:t de använder, kameran och standardbiblioteket.
+
+Regeln fångar alltså det vanliga misstaget, ett direkt anrop som någon skriver utan att tänka på regeln. Den stoppar inte den som medvetet går runt den. Det räcker i Ripe Tomato, eftersom vyn och modellen ligger på samma sida av en förtroendegräns (se [Sammanhanget avgör](#sammanhanget-avgör-var-går-gränsen)): det är den egna koden som anropar, och misstaget är lätt att se i en granskning. Om regeln skulle hålla mot avsiktliga försök behövs ett annat skydd, till exempel att vyn bara får DTO:er utan kommandon. Det skyddet kostar däremot när programmet körs.
+
 ### Beroenderiktningen
 
 > [!NOTE]
@@ -533,6 +552,7 @@ Mönstret är tydligt: ju mer språket kan uttrycka, desto mindre behövs både 
 Verktyg ersätter inte omdöme, och de har egna kostnader.
 
 - **Heuristiker ger falska larm och missar fel.** Regeln mot kommandoanrop i Ripe Tomato matchar på namn. En vy som av andra skäl anropar en metod som heter `update` får ett falskt larm, och ett nytt kommando i `Game` skyddas inte förrän någon lägger till det i listan.
+- **Statisk analys går att kringgå.** Samma anrop kan skrivas så att regeln inte känner igen det, till exempel genom destrukturering, med `game['jump']()` eller genom att tilldela en egenskap (se [Vad regeln inte fångar](#vad-regeln-inte-fångar)). En grön lint-körning betyder att koden inte innehåller de mönster som reglerna beskriver. Den betyder inte att designen följs.
 - **Regler kan stängas av.** En `eslint-disable`-kommentar räcker. ESLint kan rapportera kommentarer som inte längre behövs (`--report-unused-disable-directives`), men själva avstängningen är synlig bara för den som läser koden.
 - **Verktygskonfiguration är också kod.** Den ska läsas, förstås och underhållas. En regel för ett fel som aldrig inträffar är lika onödig som ett skydd i koden för samma fel.
 - **Verktyg ser bara form, inte mening.** En linter kan se att modellen inte importerar vyn. Den kan inte se att en klass har fått fel ansvar, att ett namn är missvisande eller att en abstraktion inte håller.
@@ -541,7 +561,7 @@ Den sista punkten är skälet till att granskningen behövs även när alla meka
 
 ## Sammanfattning
 
-Ett designbeslut kan upprätthållas på flera nivåer: i språket, i byggstrukturen, med statisk analys, med tester, med kontroller i körande kod eller genom konvention. Ju tidigare nivå, desto snabbare återkoppling och desto mindre kod som körs i onödan. Kontroller i körande kod är rätt vid förtroendegränser, i bibliotek och när säkerhet står på spel, men inte som ett allmänt skydd mot den egna kodens misstag. Var förtroendegränserna går beror på sammanhanget, och det avgörs av tre frågor: vem som kontrollerar miljön, var datan kommer ifrån och vem som anropar koden. I ett spel som körs helt i klienten finns gränserna knappt, medan de i en Express-app finns vid varje request. Därför kan samma princip leda till att DTO:er väljs bort i det ena fallet och krävs i det andra. Indelningen i frontend och backend är ett ungefärligt mått på samma sak. Den stämmer ofta, men frontend har också gränser, och det mesta av backend ligger bakom gränsen. Hur mycket som behöver kontrolleras av verktyg beror slutligen på språket. I JavaScript, där språket ger minst hjälp, ger verktygen mest.
+Ett designbeslut kan upprätthållas på flera nivåer: i språket, i byggstrukturen, med statisk analys, med tester, med kontroller i körande kod eller genom konvention. Ju tidigare nivå, desto snabbare återkoppling och desto mindre kod som körs i onödan. Verktygen fångar misstag, men de stoppar inte den som medvetet kringgår dem, så de ersätter inte granskningen. Kontroller i körande kod är rätt vid förtroendegränser, i bibliotek och när säkerhet står på spel, men inte som ett allmänt skydd mot den egna kodens misstag. Var förtroendegränserna går beror på sammanhanget, och det avgörs av tre frågor: vem som kontrollerar miljön, var datan kommer ifrån och vem som anropar koden. I ett spel som körs helt i klienten finns gränserna knappt, medan de i en Express-app finns vid varje request. Därför kan samma princip leda till att DTO:er väljs bort i det ena fallet och krävs i det andra. Indelningen i frontend och backend är ett ungefärligt mått på samma sak. Den stämmer ofta, men frontend har också gränser, och det mesta av backend ligger bakom gränsen. Hur mycket som behöver kontrolleras av verktyg beror slutligen på språket. I JavaScript, där språket ger minst hjälp, ger verktygen mest.
 
 Tre kontrollfrågor fungerar oavsett språk och roll:
 
