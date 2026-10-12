@@ -23,12 +23,14 @@ Arkitekturen har tre roller och en startpunkt. Det finns inga fler lager än så
 
 ```mermaid
 flowchart LR
-    S["index.js<br/>startpunkt och loop"]
+    S["index.js<br/>startpunkt"]
+    F["frame.js<br/>ett varv i loopen"]
     C["controllers/"]
     V["views/"]
     M["models/"]
     P(["p5"])
 
+    S --> F
     S --> C
     S --> V
     S --> M
@@ -39,18 +41,19 @@ flowchart LR
     V -.->|"ritar via injicerat p"| P
 ```
 
-Heldragna pilar är importer. Den streckade pilen är ett beroende som uppstår när koden körs: vyerna importerar inte p5, de får instansen `p` från `index.js` och ritar genom den. Alla pilar som rör `models/` pekar in mot den, och ingen går ut från den.
+Heldragna pilar är importer. Den streckade pilen är ett beroende som uppstår när koden körs: vyerna importerar inte p5, de får instansen `p` från `index.js` och ritar genom den. Alla pilar som rör `models/` pekar in mot den, och ingen går ut från den. `frame.js` importerar ingenting. Den får kontrollern, modellen och vyn av `index.js` och anropar dem i loopens ordning.
 
 | Del | Får känna till | Får inte känna till |
 | --- | --- | --- |
 | `models/` | ingenting utanför `models/` | p5, pixlar, tangenter, musen |
 | `views/` | modellen (läser), p5 | kontrollern |
 | `controllers/` | modellen (kommandon), `Camera` | p5, ritning |
+| `frame.js` | det som injiceras: kontroller, modell, vy | p5 |
 | `index.js` | allt | – |
 
 Två regler gör separationen tydlig:
 
-1. **Bara kontrollern skickar kommandon till modellen, och bara loopen driver tiden.** Kontrollern anropar `jump()`, `steer()` och `restart()`, och `index.js` anropar `update(dt)`. Vyn läser modellens tillstånd via getters men ändrar det aldrig.
+1. **Bara kontrollern skickar kommandon till modellen, och bara loopen driver tiden.** Kontrollern anropar `jump()`, `steer()` och `restart()`, och loopen i `frame.js` anropar `update(dt)`. Vyn läser modellens tillstånd via getters men ändrar det aldrig.
 2. **Bara `index.js` och vyerna ser p5.** Kontrollerns input-klasser tar emot vanliga värden (`'ArrowLeft'`, `x`, `y`), så de kan testas utan p5.
 
 ### Reglerna kontrolleras av lintern
@@ -85,6 +88,7 @@ Reglerna i `eslint.config.js`:
 | `views/` | `no-restricted-imports` | `controllers/`, `index.js` |
 | `views/` | `no-restricted-syntax` | anrop av `jump`, `steer`, `restart` och `update` på ett objekt |
 | `controllers/` | `no-restricted-imports` | `p5`, `views/` utom `views/Camera.js`, `index.js` |
+| `frame.js` | `no-restricted-imports` | `p5`, `index.js` |
 
 Mönstren är i gitignore-stil (`**/views/**`) och fångar därför både alias-importer (`@/views/GameView.js`) och relativa (`../views/GameView.js`). Undantaget för `Camera` uttrycks med negation (`!**/views/Camera.js`).
 
@@ -106,7 +110,7 @@ export const createRandomLevel = (random) => ({
 })
 
 // index.js: production uses the real generator.
-game = new Game(() => createRandomLevel(Math.random))
+const game = new Game(() => createRandomLevel(Math.random))
 
 // A test: a fixed sequence gives the same level every time.
 const game = new Game(() => createRandomLevel(() => 0.5))
@@ -128,7 +132,8 @@ Typimporter i JSDoc (`@typedef {import('@/views/Camera.js').Camera}`) kontroller
 
 ```text
 src/js/
-├── index.js                  # startpunkt: skapar objekten, kopplar p5-händelser, kör loopen
+├── index.js                  # startpunkt: skapar objekten, kopplar p5-händelser, driver loopen
+├── frame.js                  # ett varv i loopen: input, simulering, rendering
 ├── models/
 │   ├── Game.js               # fasad mot modellen: update(dt), jump(), steer(), restart()
 │   ├── GameStatus.js         # uppräkning: PLAYING, LOST, WON
@@ -663,7 +668,7 @@ Det är kontrollern som avgör att samma avsikt betyder "hoppa" medan spelet på
 
 ## Startpunkten: `index.js`
 
-Sketchen skapar objekten, kopplar p5:s händelser till input-klasserna och kör loopen. Den är den enda filen som känner till alla delar.
+Sketchen skapar objekten, kopplar p5:s händelser till input-klasserna och driver loopen. Den är den enda filen som känner till alla delar.
 
 ```js
 import p5 from 'p5'
@@ -673,18 +678,17 @@ const sketch = (p) => {
   const keyboard = new KeyboardInput()
   const pointer = new PointerInput()
 
-  let game
-  let view
-  let controller
+  let frame
 
   p.setup = () => {
     // The canvas must exist before the camera reads its size.
     p.createCanvas(800, 400)
     const camera = new Camera(p.height)
 
-    game = new Game(createFirstLevel)
-    view = new GameView(p, game, camera)
-    controller = new GameController(game, camera, keyboard, pointer)
+    const game = new Game(createFirstLevel)
+    const view = new GameView(p, game, camera)
+    const controller = new GameController(game, camera, keyboard, pointer)
+    frame = createFrame(controller, game, view)
 
     // Keys released while the window is out of focus never send a release event.
     window.addEventListener('blur', keyboard.reset)
@@ -707,11 +711,7 @@ const sketch = (p) => {
   p.mouseDragged = () => pointer.move(p.mouseX, p.mouseY)
   p.mouseReleased = () => pointer.release()
 
-  p.draw = () => {
-    controller.update() // 1. apply buffered input
-    game.update(p.deltaTime / 1000) // 2. advance the simulation, in seconds
-    view.draw() // 3. render the new state
-  }
+  p.draw = () => frame(p.deltaTime)
 
   const isInsideCanvas = () => p.mouseX >= 0 && p.mouseX < p.width && p.mouseY >= 0 && p.mouseY < p.height
 }
@@ -719,7 +719,17 @@ const sketch = (p) => {
 new p5(sketch, document.querySelector('#app'))
 ```
 
-Ordningen i `p.draw` är avsiktlig och samma varje frame: input, simulering, rendering. Det är hela loopens kontrakt. I p5 2.3.2 får `keyPressed` eventet som argument, och `return false` gör att p5 anropar `preventDefault()`.
+`p.draw` lämnar bara över p5:s klocka, i millisekunder. Själva varvet ligger i `frame.js`:
+
+```js
+export const createFrame = (controller, game, view) => (deltaTimeMs) => {
+  controller.update() // 1. apply buffered input
+  game.update(deltaTimeMs / 1000) // 2. advance the simulation, in seconds
+  view.draw() // 3. render the new state
+}
+```
+
+Ordningen är avsiktlig och samma varje frame: input, simulering, rendering. Det är hela loopens kontrakt. Det ligger i en egen modul för att kunna testas utan p5, och `frame.test.js` kontrollerar både ordningen och att tiden omvandlas till sekunder. Testet ersatte en kontroll av `dt` i `Game.update`, som kördes varje frame men inte kunde upptäcka fel enhet. Resonemanget finns i [Från kontroll till test](ENFORCING_DESIGN_WITH_TOOLS.md#från-kontroll-till-test-dt-i-loopen). I p5 2.3.2 får `keyPressed` eventet som argument, och `return false` gör att p5 anropar `preventDefault()`.
 
 `keyboard` och `pointer` kan skapas på toppnivå eftersom de inte behöver p5. Allt som behöver canvasen skapas i `p.setup`.
 
@@ -737,6 +747,7 @@ sequenceDiagram
     participant P as p : p5
     participant S as index.js
     participant L as createFirstLevel
+    participant CF as createFrame
 
     P->>S: setup()
     S->>P: createCanvas(800, 400)
@@ -750,6 +761,8 @@ sequenceDiagram
     S->>V: new GameView(p, game, camera)
     create participant C as controller : GameController
     S->>C: new GameController(game, camera, keyboard, pointer)
+    S->>CF: createFrame(controller, game, view)
+    CF-->>S: frame
 ```
 
 ### En frame
@@ -758,6 +771,7 @@ sequenceDiagram
 sequenceDiagram
     participant P as p : p5
     participant S as index.js
+    participant F as frame
     participant C as controller : GameController
     participant K as keyboard : KeyboardInput
     participant G as game : Game
@@ -767,8 +781,9 @@ sequenceDiagram
     participant Cam as camera : Camera
 
     P->>S: draw()
+    S->>F: frame(p.deltaTime)
 
-    S->>C: update()
+    F->>C: update()
     C->>K: consumeJump()
     K-->>C: false
     C->>K: direction
@@ -776,7 +791,7 @@ sequenceDiagram
     C->>G: steer(1)
     G->>T: steer(1)
 
-    S->>G: update(p.deltaTime / 1000)
+    F->>G: update(deltaTimeMs / 1000)
     G->>T: update(step)
     loop för varje hinder
         G->>O: update(step)
@@ -786,7 +801,7 @@ sequenceDiagram
         O-->>G: false
     end
 
-    S->>V: draw()
+    F->>V: draw()
     V->>G: tomato.x
     V->>Cam: follow(x)
     V->>G: obstacles, finishX, status
@@ -804,6 +819,7 @@ sequenceDiagram
     actor A as Spelare
     participant P as p : p5
     participant S as index.js
+    participant F as frame
     participant K as keyboard : KeyboardInput
     participant C as controller : GameController
     participant G as game : Game
@@ -817,7 +833,8 @@ sequenceDiagram
 
     Note over P,T: nästa frame
     P->>S: draw()
-    S->>C: update()
+    S->>F: frame(p.deltaTime)
+    F->>C: update()
     C->>K: consumeJump()
     K-->>C: true
     C->>G: jump()
@@ -834,6 +851,7 @@ sequenceDiagram
     actor A as Spelare
     participant P as p : p5
     participant S as index.js
+    participant F as frame
     participant Ptr as pointer : PointerInput
     participant C as controller : GameController
     participant Cam as camera : Camera
@@ -845,7 +863,8 @@ sequenceDiagram
 
     Note over P,G: nästa frame
     P->>S: draw()
-    S->>C: update()
+    S->>F: frame(p.deltaTime)
+    F->>C: update()
     C->>Ptr: consumePress()
     Ptr-->>C: true
     C->>G: jump()
@@ -865,25 +884,26 @@ Ett klick ger alltså också ett hopp, eftersom en tryckning är ett hopp och en
 sequenceDiagram
     actor A as Spelare
     participant S as index.js
+    participant F as frame
     participant C as controller : GameController
     participant G as game : Game
     participant B as bird : Bird
     participant V as view : GameView
     participant H as hudView : HudView
 
-    S->>G: update(dt)
+    F->>G: update(dt)
     G->>B: collidesWith(tomato)
     B-->>G: true
     Note over G: status = LOST
 
-    S->>V: draw()
+    F->>V: draw()
     V->>H: draw(game)
     Note over H: "Squashed! Press Space or click to try again."
 
-    Note over S,G: frames passerar, update() gör ingenting
+    Note over F,G: frames passerar, update() gör ingenting
     A->>S: trycker Space (buffras)
 
-    S->>C: update()
+    F->>C: update()
     C->>G: isOver
     G-->>C: true
     C->>G: restart()
@@ -961,6 +981,7 @@ src/js/
 | `geometry.js` | `circleIntersectsRect` | nej |
 | `KeyboardInput`, `PointerInput` | tangentmappning, autorepeat, `consume…` förbrukar exakt en gång | nej |
 | `GameController` | att avsikter blir rätt kommandon, med en fejkad `Game` och `Camera` | nej |
+| `frame.js` | loopens ordning och att tiden omvandlas från millisekunder till sekunder, med fejkade delar | nej |
 | `Camera` | `canvasToWorld(worldToCanvas(p))` ger `p` tillbaka | nej |
 | vyerna | att rätt ritanrop görs, med en mockad `p` | mockad |
 
@@ -1001,13 +1022,13 @@ describe('Tomato', () => {
 
 ### Integrationstester
 
-Enhetstesterna av `GameController` använder en fejkad `Game` och en fejkad `Camera`. JavaScript kontrollerar inte att en fejk har samma gränssnitt som klassen den ersätter. Om `Game` byter namn på `steer()` eller ändrar vad `isOver` betyder går controllertesterna fortfarande igenom, men spelet slutar fungera. `tests/integration/inputToGame.test.js` kopplar därför ihop riktiga `KeyboardInput`, `PointerInput`, `GameController`, `Game` och `Camera` på samma sätt som `index.js` och kör loopen utan p5. Testerna kontrollerar att ett tangenttryck får tomaten att hoppa, att en nedhållen musknapp till höger om tomaten får den att gå åt höger och att ett tangenttryck efter en kollision startar om spelet.
+Enhetstesterna av `GameController` använder en fejkad `Game` och en fejkad `Camera`. JavaScript kontrollerar inte att en fejk har samma gränssnitt som klassen den ersätter. Om `Game` byter namn på `steer()` eller ändrar vad `isOver` betyder går controllertesterna fortfarande igenom, men spelet slutar fungera. `tests/integration/inputToGame.test.js` kopplar därför ihop riktiga `KeyboardInput`, `PointerInput`, `GameController`, `Game` och `Camera` på samma sätt som `index.js` och kör den riktiga loopen, `createFrame`, utan p5 och utan vy. Testerna kontrollerar att ett tangenttryck får tomaten att hoppa, att en nedhållen musknapp till höger om tomaten får den att gå åt höger och att ett tangenttryck efter en kollision startar om spelet.
 
 Modellens delar behöver inga egna integrationstester. `Game.test.js` använder riktiga hinder, och `levels.test.js` spelar igenom hela banan med riktiga objekt.
 
 ### E2E-tester
 
-Ett *E2E-test* (*end-to-end*) kör hela programmet som en användare gör: det byggda spelet i en riktig webbläsare, med riktiga tangenttryck och musklick. Enhetstesterna och integrationstesterna når inte `index.js`. Kopplingen till p5, loopen i `draw()` och det som bara webbläsaren gör, som att rulla sidan eller tappa fokus, testas därför bara på den här nivån.
+Ett *E2E-test* (*end-to-end*) kör hela programmet som en användare gör: det byggda spelet i en riktig webbläsare, med riktiga tangenttryck och musklick. Enhetstesterna och integrationstesterna når inte `index.js`. Kopplingen till p5, att `draw()` lämnar över klockan till loopen och det som bara webbläsaren gör, som att rulla sidan eller tappa fokus, testas därför bara på den här nivån.
 
 För ett så litet spel är E2E-tester i överkant. Koden i `index.js` är tunn och syns direkt när spelet körs. Testerna finns här för att visa hur nivån fungerar och vad den tillför.
 
@@ -1028,7 +1049,7 @@ Spelet ritar allt på en canvas, så det finns ingen DOM att fråga efter tomate
 Varje test är kontrollerat mot en avsiktligt trasig `index.js`. Utan `return false`, utan `blur`-lyssnaren eller utan kontrollen av klickets position misslyckas precis det test som hör till respektive rad, och inga andra.
 
 E2E-tester har ett pris som de andra nivåerna inte har:
-- **De är långsamma.** Sju tester tar ungefär sex sekunder, plus tiden för bygget. Vitests 70 enhets- och integrationstester tar tillsammans under en tiondels sekund att köra.
+- **De är långsamma.** Sju tester tar ungefär sex sekunder, plus tiden för bygget. Vitests 71 enhets- och integrationstester tar tillsammans under en tiondels sekund att köra.
 - **De kan vara instabila.** Spelet går i realtid, så en långsam dator kan missa en frame. Testerna väntar därför med `expect.poll` tills ett villkor uppfylls i stället för en fast tid, och CI gör upp till två nya försök.
 - **De säger mindre om var felet är.** Ett misslyckat E2E-test säger att något i kedjan är fel men inte vad. Därför körs de i ett eget jobb i CI, och Playwrights rapport med en trace av varje steg sparas när ett test misslyckas.
 - **De är känsliga för ändringar i utseendet.** Byter tomaten färg slutar testerna hitta den. Det är priset för att testa utifrån.
@@ -1044,7 +1065,7 @@ Därför bör E2E-testerna vara få och täcka det som ingen annan nivå når. L
 | `views/Input.js` | `controllers/KeyboardInput.js` och `controllers/PointerInput.js` |
 | `views/utils/CoordinateConverter.js` | `views/Camera.js` med `canvasToWorld` och `follow` |
 | `GameView` skapar canvasen och konverteraren | `index.js` skapar canvasen och `Camera`, som injiceras |
-| `GameController.update()` anropar `gameView.draw()` | `index.js` kör input, simulering och rendering i tur och ordning |
+| `GameController.update()` anropar `gameView.draw()` | `frame.js` kör input, simulering och rendering i tur och ordning |
 
 ## Öppna frågor
 

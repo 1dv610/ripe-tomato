@@ -212,7 +212,86 @@ Kontroller i körande kod är därför rätt i tre situationer.
 
 **När säkerhet står på spel.** En lintregel kan stängas av med en kommentar. Den är ett skydd mot misstag, aldrig mot någon som medvetet försöker kringgå den.
 
-Ripe Tomato har exempel på båda sidor av gränsen. `Tomato`s konstruktor kontrollerar att argumenten är ändliga tal och kastar ett `TypeError` annars. Kontrollen körs en gång per objekt och fångar felet där det uppstår, i stället för som ett `NaN` som dyker upp långt senare i ritkoden. Det är billigt och ger mycket. `Game.update(dt)` kontrollerar på samma sätt att `dt` är ett giltigt tal, men den kontrollen körs varje frame, och den enda som anropar metoden är spelets egen loop. Kostnaden är försumbar, men den är svårare att motivera. Den hade kunnat ersättas med ett test av loopen.
+Ripe Tomato har exempel på båda sidor av gränsen. `Tomato`s konstruktor kontrollerar att argumenten är ändliga tal och kastar ett `TypeError` annars. Kontrollen körs en gång per objekt och fångar felet där det uppstår, i stället för som ett `NaN` som dyker upp långt senare i ritkoden. Det är billigt och ger mycket. `Game.update(dt)` kontrollerade på samma sätt att `dt` var ett giltigt tal, men den kontrollen kördes varje frame, och den enda som anropar metoden är spelets egen loop. Kostnaden var försumbar, men kontrollen var svår att motivera, och den har ersatts med ett test av loopen.
+
+### Från kontroll till test: `dt` i loopen
+
+Före bytet kontrollerade `Game.update` sitt argument, och ett enhetstest kontrollerade kontrollen:
+
+```js
+// Game.js
+update = (dt) => {
+  if (!Number.isFinite(dt) || dt < 0) {
+    throw new RangeError('dt must be a non-negative finite number.')
+  }
+  // ...
+}
+
+// index.js
+p.draw = () => {
+  controller.update() // 1. Apply the input buffered since the last frame.
+  game.update(p.deltaTime / 1000) // 2. Advance the simulation, in seconds.
+  view.draw() // 3. Render the new state.
+}
+```
+
+Vad skyddade kontrollen mot? För att ta reda på det fick loopen tre avsiktliga buggar, och E2E-testerna kördes mot var och en:
+
+| Bugg i `p.draw` | Kontrollen i `Game.update` | E2E-testerna |
+| --- | --- | --- |
+| `p.deltaTime` har fått ett annat namn, så `undefined / 1000` blir `NaN` | kastar `RangeError` | 7 av 7 misslyckas |
+| samma bugg, utan kontrollen | finns inte | 7 av 7 misslyckas |
+| millisekunder i stället för sekunder: `game.update(p.deltaTime)` | släpper igenom, eftersom 16,7 är ett giltigt tal | 7 av 7 går igenom |
+
+`NaN` fångades alltså redan av E2E-testerna, med eller utan kontroll. Kontrollen gav bara ett tydligare felmeddelande. Den troligaste buggen, fel enhet, missade både kontrollen och testerna. `Game` begränsar varje tidssteg till 1/30 sekund, så spelet går ungefär dubbelt så fort i stället för att gå sönder. Kontrollen skyddade alltså mot en bugg som redan fångades och missade den som inte gjorde det.
+
+Efter bytet ligger loopens kontrakt, ordningen och enhetsomvandlingen, i en egen modul utan beroende till p5:
+
+```js
+// frame.js
+export const createFrame = (controller, game, view) => (deltaTimeMs) => {
+  controller.update()
+  game.update(deltaTimeMs / 1000)
+  view.draw()
+}
+
+// index.js
+p.draw = () => {
+  frame(p.deltaTime)
+}
+```
+
+Testet beskriver kontraktet i stället för att skydda mot brott mot det:
+
+```js
+// frame.test.js
+const setup = () => {
+  const calls = []
+  const frame = createFrame(
+    { update: () => calls.push('input') },
+    { update: (dt) => calls.push(dt) },
+    { draw: () => calls.push('draw') }
+  )
+  return { calls, frame }
+}
+
+it('applies input, then simulates, then draws', () => {
+  const { calls, frame } = setup()
+
+  frame(16)
+
+  expect(calls).toEqual(['input', 0.016, 'draw'])
+})
+```
+
+Kontrollen i `Game.update` och testet av den är borttagna. Integrationstesterna i `tests/integration/` kör nu också den riktiga `createFrame` i stället för en egen kopia av loopen.
+
+Bytet täcker de två buggarna på olika nivåer:
+
+- **Fel enhet** fångas av enhetstestet, som misslyckas om `/ 1000` tas bort. Integrationstesterna går däremot igenom även då, av samma skäl som E2E-testerna: tidssteget begränsas.
+- **Ett `p.deltaTime` som inte finns** fångas fortfarande av E2E-testerna. Enhetstestet kan inte se det, eftersom det skickar in talet själv.
+
+Ett hål finns kvar. Skriver någon `frame(p.deltaTime / 1000)` i `index.js` omvandlas tiden två gånger. Det fångas bara av E2E-testerna: fyra av sju misslyckas, eftersom spelet då går tusen gånger för långsamt och tomaten varken hinner hoppa eller gå. De tre som bara kontrollerar startläget, sidans rullning och fokus går igenom. Priset för bytet är en fil och en indirektion till. I gengäld är loopens kontrakt en körbar specifikation i stället för en kommentar, och kontrakt som bara finns i kommentarer kontrolleras inte av något.
 
 ## Sammanhanget avgör: var går gränsen?
 
@@ -373,7 +452,7 @@ Det som ser ut som ett funktionsanrop inom programmet är i själva verket en f�
 
 Det finns ett mellanläge mellan verktyg och kontroller i körande kod: kontroller som bara finns i utvecklingsbygget. Redux Toolkit upptäcker otillåtna ändringar av tillståndet, men bara under utveckling. React StrictMode renderar komponenter två gånger för att hitta oavsiktliga sidoeffekter, också bara under utveckling. Kontrollerna fångar den egna kodens misstag, och priset betalas aldrig i produktion.
 
-Det tydliggör principen. Ett skydd mot de egna misstagen hör inte hemma i produktionskoden, men ett skydd mot omvärlden gör det. Kontrollen av `dt` i `Game.update` i Ripe Tomato är ett skydd mot egna misstag. Om den ska finnas kvar, hör den hemma i ett test eller bakom Vites `import.meta.env.DEV`.
+Det tydliggör principen. Ett skydd mot de egna misstagen hör inte hemma i produktionskoden, men ett skydd mot omvärlden gör det. Kontrollen av `dt` som tidigare fanns i `Game.update` i Ripe Tomato var ett skydd mot egna misstag. Därför ersattes den med ett test (se [Från kontroll till test](#från-kontroll-till-test-dt-i-loopen)). Bakom Vites `import.meta.env.DEV` hade den varit ett rimligt mellanläge.
 
 ### Samma språk på båda sidor
 
