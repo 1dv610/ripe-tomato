@@ -725,25 +725,30 @@ Ordningen i `p.draw` är avsiktlig och samma varje frame: input, simulering, ren
 
 ## Samverkan över tid
 
+Sekvensdiagrammen följer UML:
+- **Livslinjer för objekt** skrivs `namn : Klass`, med samma namn som variabeln eller fältet i koden.
+- **`index.js` och `createFirstLevel`** är en modul och en funktion, inte objekt, och står därför utan klass.
+- **Objekt som skapas under förloppet** får en livslinje som börjar vid create-meddelandet.
+
 ### Uppstart
 
 ```mermaid
 sequenceDiagram
-    participant P as p5
+    participant P as p : p5
     participant S as index.js
-    participant G as Game
     participant L as createFirstLevel
-    participant Cam as Camera
-    participant V as GameView
-    participant C as GameController
 
     P->>S: setup()
     S->>P: createCanvas(800, 400)
+    create participant Cam as camera : Camera
     S->>Cam: new Camera(p.height)
+    create participant G as game : Game
     S->>G: new Game(createFirstLevel)
     G->>L: createLevel()
     L-->>G: { obstacles, finishX }
+    create participant V as view : GameView
     S->>V: new GameView(p, game, camera)
+    create participant C as controller : GameController
     S->>C: new GameController(game, camera, keyboard, pointer)
 ```
 
@@ -751,15 +756,15 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant P as p5
+    participant P as p : p5
     participant S as index.js
-    participant C as GameController
-    participant K as KeyboardInput
-    participant G as Game
-    participant T as Tomato
-    participant O as Obstacle[]
-    participant V as GameView
-    participant Cam as Camera
+    participant C as controller : GameController
+    participant K as keyboard : KeyboardInput
+    participant G as game : Game
+    participant T as tomato : Tomato
+    participant O as obstacle : Obstacle
+    participant V as view : GameView
+    participant Cam as camera : Camera
 
     P->>S: draw()
 
@@ -773,9 +778,13 @@ sequenceDiagram
 
     S->>G: update(p.deltaTime / 1000)
     G->>T: update(step)
-    G->>O: update(step)
-    G->>O: collidesWith(tomato)
-    O-->>G: false
+    loop för varje hinder
+        G->>O: update(step)
+    end
+    loop för varje hinder, tills något kolliderar
+        G->>O: collidesWith(tomato)
+        O-->>G: false
+    end
 
     S->>V: draw()
     V->>G: tomato.x
@@ -793,12 +802,12 @@ Tangenttrycket kommer mellan två frames. Det sparas och får effekt först i n�
 ```mermaid
 sequenceDiagram
     actor A as Spelare
-    participant P as p5
+    participant P as p : p5
     participant S as index.js
-    participant K as KeyboardInput
-    participant C as GameController
-    participant G as Game
-    participant T as Tomato
+    participant K as keyboard : KeyboardInput
+    participant C as controller : GameController
+    participant G as game : Game
+    participant T as tomato : Tomato
 
     A->>P: trycker Space
     P->>S: keyPressed(event)
@@ -823,12 +832,12 @@ Musens position är i pixlar. Kontrollern omvandlar den till world space med sam
 ```mermaid
 sequenceDiagram
     actor A as Spelare
-    participant P as p5
+    participant P as p : p5
     participant S as index.js
-    participant Ptr as PointerInput
-    participant C as GameController
-    participant Cam as Camera
-    participant G as Game
+    participant Ptr as pointer : PointerInput
+    participant C as controller : GameController
+    participant Cam as camera : Camera
+    participant G as game : Game
 
     A->>P: håller ner musknappen till höger om tomaten
     P->>S: mousePressed()
@@ -856,11 +865,11 @@ Ett klick ger alltså också ett hopp, eftersom en tryckning är ett hopp och en
 sequenceDiagram
     actor A as Spelare
     participant S as index.js
-    participant C as GameController
-    participant G as Game
-    participant B as Bird
-    participant V as GameView
-    participant H as HudView
+    participant C as controller : GameController
+    participant G as game : Game
+    participant B as bird : Bird
+    participant V as view : GameView
+    participant H as hudView : HudView
 
     S->>G: update(dt)
     G->>B: collidesWith(tomato)
