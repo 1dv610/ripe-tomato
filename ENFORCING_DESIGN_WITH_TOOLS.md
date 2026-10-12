@@ -632,7 +632,7 @@ Mönstret är tydligt: ju mer språket kan uttrycka, desto mindre behövs både 
 
 Verktyg ersätter inte omdöme, och de har egna kostnader.
 
-- **Heuristiker ger falska larm och missar fel.** Regeln mot kommandoanrop i Ripe Tomato matchar på namn. En vy som av andra skäl anropar en metod som heter `update` får ett falskt larm, och ett nytt kommando i `Game` skyddas inte förrän någon lägger till det i listan.
+- **Regler som gissar ger falska larm och missar fel.** Regeln mot kommandoanrop i Ripe Tomato matchar på namn. En vy som av andra skäl anropar en metod som heter `update` får ett falskt larm, och ett nytt kommando i `Game` skyddas inte förrän någon lägger till det i listan.
 - **Statisk analys går att kringgå.** Samma anrop kan skrivas så att regeln inte känner igen det, till exempel genom destrukturering, med `game['jump']()` eller genom att tilldela en egenskap (se [Vad regeln inte fångar](#vad-regeln-inte-fångar)). En grön lint-körning betyder att koden inte innehåller de mönster som reglerna beskriver. Den betyder inte att designen följs.
 - **Regler kan stängas av.** En `eslint-disable`-kommentar räcker. ESLint kan rapportera kommentarer som inte längre behövs (`--report-unused-disable-directives`), men själva avstängningen är synlig bara för den som läser koden.
 - **Verktygskonfiguration är också kod.** Den ska läsas, förstås och underhållas. En regel för ett fel som aldrig inträffar är lika onödig som ett skydd i koden för samma fel.
