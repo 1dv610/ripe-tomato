@@ -544,6 +544,15 @@ Placeringen kan prövas genom att man ändrar presentationen. Zoom, en högre ca
 
 Kontrollern beror på `Camera` eftersom input kommer i pixlar, och pixlar är ett begrepp som bara vyn har. Ett klick ska tolkas mot det spelaren såg, och då måste kontrollern använda samma omvandling som ritkoden. Om kontrollern räknade om på egen hand skulle samma vykunskap finnas på två ställen, och de två kunde glida isär. Priset är undantaget i lint-regeln (`!**/views/Camera.js`). Regeln att kontrollern inte får importera vyn har ett hål, och hålet måste hållas så litet som en enda fil.
 
+I en Express-app med EJS motsvaras `Camera` närmast av en formateringsfunktion som görs tillgänglig för mallarna:
+
+```js
+app.locals.formatPrice = (amount) =>
+  new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(amount)
+```
+
+`formatPrice` renderar ingenting, men ingen skulle lägga den i `models/`. Den gör om modellens värden till något som kan visas, och därför är den vykod. Samma sak gäller åt andra hållet. Om mallen visar `1,50 kr` och användaren skriver `1,50` i ett formulär, måste kontrollern tolka `req.body.price` med samma locale, annars blir det fel tal. Formateringen ut och tolkningen in delar en regel, och regeln hör till presentationen. `worldToCanvas` och `canvasToWorld` är samma par för koordinater. Liknelsen haltar på en punkt: `formatPrice` har inget tillstånd, men `Camera` har `offsetX`, som ändras när tomaten rör sig.
+
 ## Kontrollern
 
 Kontrollern översätter **avsikter** till modellkommandon. I Smalltalks ursprungliga MVC var kontrollern just den del som hanterade inputenheter. Input-klasserna hör därför till `controllers/` och inte till `views/`.
