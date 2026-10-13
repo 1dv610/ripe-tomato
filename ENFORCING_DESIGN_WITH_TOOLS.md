@@ -495,7 +495,7 @@ Var gränserna går beror på hur applikationen är byggd. För de vanligaste we
 | Arkitektur | Gränser | Vad det betyder i praktiken |
 | --- | --- | --- |
 | Statisk sida eller spel som bara körs i klienten, som Ripe Tomato | inga, så länge ingen data hämtas utifrån | verktyg och typer räcker. Inget skydd i klienten kan stoppa användaren |
-| Serverrenderad app, som Express med Handlebars | requesten in till servern | validering, behörighet och projektion av data vid routen. Mallmotorn avgör hur mycket vyn kan göra |
+| Serverrenderad app, som Express med EJS | requesten in till servern | validering, behörighet och projektion av data vid routen. Mallmotorn avgör hur mycket vyn kan göra, och i EJS kan vyn köra vilken JavaScript som helst |
 | SPA mot ett REST-API, som React eller Vue med Express | requesten in till API:t, och renderingen av data från API:t i klienten | API:t är gränsen för säkerhet, och klienten måste koda data från andra användare. Validering i klienten är användarupplevelse |
 | Ramverk som blandar klient och server, som Next.js, Remix eller SvelteKit | varje serverfunktion som klienten kan anropa, och varje import som kan dra med serverkod till klienten | gränsen syns inte i katalogstrukturen. Verktyg som `server-only` och lintregler gör den synlig |
 
