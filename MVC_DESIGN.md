@@ -538,6 +538,12 @@ Markens höjd definieras här och bara här. I modellen är marken alltid `y = 0
 
 `Camera` skapas i `index.js` och injiceras i både vyn och kontrollern. Därmed är den öppna frågan i [SESSION_2.md](SESSION_2.md) om vem som äger konverteraren besvarad. Vyn flyttar kameran när den ritar, och kontrollern använder samma kamera i nästa frame. Ett musklick tolkas alltså mot det spelaren faktiskt såg.
 
+`Camera` ritar ingenting, men den hör ändå till vyn. Var en klass hör hemma avgörs av vilken kunskap den bär, inte av om den anropar p5. Allt `Camera` vet handlar om presentation: skalan i pixlar per tomat, hur tjock markremsan är, var på skärmen tomaten ska synas och vilken del av världen som syns just nu. Modellen räknar i tomater, har marken i `y = 0` utan tjocklek och vet inte att någon tittar på den.
+
+Placeringen kan prövas genom att man ändrar presentationen. Zoom, en högre canvas, tjockare mark eller en mer centrerad tomat ändrar `Camera` och ritkoden men aldrig modellen. Delad skärm, där två spelare ser samma `Game`, skulle kräva två kameror men bara en modell. Kamerans läge hör alltså inte till spelet utan till hur spelet visas.
+
+Kontrollern beror på `Camera` eftersom input kommer i pixlar, och pixlar är ett begrepp som bara vyn har. Ett klick ska tolkas mot det spelaren såg, och då måste kontrollern använda samma omvandling som ritkoden. Om kontrollern räknade om på egen hand skulle samma vykunskap finnas på två ställen, och de två kunde glida isär. Priset är undantaget i lint-regeln (`!**/views/Camera.js`). Regeln att kontrollern inte får importera vyn har ett hål, och hålet måste hållas så litet som en enda fil.
+
 ## Kontrollern
 
 Kontrollern översätter **avsikter** till modellkommandon. I Smalltalks ursprungliga MVC var kontrollern just den del som hanterade inputenheter. Input-klasserna hör därför till `controllers/` och inte till `views/`.
