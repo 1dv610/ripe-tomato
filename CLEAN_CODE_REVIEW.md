@@ -124,6 +124,29 @@ Uttrycket är kort men kräver en typomvandling och en stunds eftertanke. Två `
 
 **Lintundantag.** [Obstacle.js:66](src/js/models/obstacles/Obstacle.js#L66) och [Obstacle.js:76](src/js/models/obstacles/Obstacle.js#L76) stänger av `no-unused-vars` för parametrarna i basklassens tomma metoder. Det är rimligt i en abstrakt klass, men det är undantag från en regel.
 
+## Arkitektur
+
+Andra utgåvan av Clean Code (2025) har en egen del om arkitektur, med idéer från författarens *Clean Architecture* (2017). Den viktigaste är beroenderegeln: beroenden pekar inåt, mot det som bär reglerna, och aldrig utåt mot ramverk, gränssnitt eller databaser. Hur designen bakom spelet är tänkt står i [MVC_DESIGN.md](MVC_DESIGN.md). Här ställs den mot bokens begrepp.
+
+| Begrepp | I Ripe Tomato |
+| --- | --- |
+| Entiteter, reglerna i mitten | `models/`: `Game`, `Tomato` och hindren |
+| Beroenderegeln | Modellen importerar varken p5, vyer eller kontroller och läser varken klockan eller slumpen. Lintern kontrollerar det, se [eslint.config.js](eslint.config.js) |
+| Ramverket är en detalj | p5 når bara `index.js` och vyerna. Modellen kan köras i Node |
+| Adaptrar vid gränsen | `KeyboardInput` och `PointerInput` gör om händelser till vanliga värden, och `GameController` gör om dem till kommandon |
+| Humble Object | Vyerna ritar utan logik värd att testa. Omräkningen mellan koordinater ligger i `Camera`, som har egna tester |
+| Main, den smutsigaste komponenten | `index.js` är ensam om att känna till alla delar |
+
+Det som skiljer Ripe Tomato från de flesta projekt som säger sig följa beroenderegeln är att den kontrolleras av ett verktyg. Ett beroende åt fel håll blir ett lintfel i editorn, inte en fråga för nästa kodgranskning. Se [ENFORCING_DESIGN_WITH_TOOLS.md](ENFORCING_DESIGN_WITH_TOOLS.md).
+
+Koden avviker från Clean Architecture på två punkter. Båda är medvetna beslut som motiveras i MVC_DESIGN.md.
+
+**Inget lager för användningsfall.** `Game` är både entitet och användningsfall: den har reglerna och samordnar dem. Ett eget lager skulle här bara skicka vidare anrop, eftersom spelet saknar lagring, server och asynkrona anrop. MVC_DESIGN.md beskriver när ett sådant lager lönar sig, till exempel med en highscore-lista på en server ([Fler lager?](MVC_DESIGN.md#fler-lager)).
+
+**Ingen presenter och ingen vymodell.** Clean Architecture låter en presenter göra om modellens data till en vymodell, så att vyn inte känner till entiteterna. Här läser vyerna modellens objekt direkt: `GameView` läser `game.tomato`, och `ObstacleView` importerar `Bird`, `Crate` och `Pit`. Beroendet pekar fortfarande inåt, så beroenderegeln hålls. Däremot *kan* en vy anropa en metod som ändrar modellen. Det hindras av en konvention och en lintregel som känner igen kommandona på namn, inte av typer. Kostnaden för en vymodell, en andra beskrivning av samma form som måste hållas i takt med modellen, bedöms vara större än skyddet ([Designbeslut och alternativ](MVC_DESIGN.md#designbeslut-och-alternativ)).
+
+Att kontrollern beror på `Camera` i `views/` är också en avvikelse, men en liten. Båda ligger i samma ring, adaptrarna, och undantaget står uttryckligen i lintkonfigurationen.
+
 ## Vad metrikerna inte ser
 
 Inget av de tydliga brotten syns i mätvärdena i [CODE_METRICS.md](CODE_METRICS.md). Magiska tal och sifferargument ger varken högre komplexitet eller längre funktioner. `HudView.draw` med sina sektioner fick godkänt: 22 rader och CC 2. Det enda brottet som syns indirekt är de obligatoriska kommentarerna, genom kvoten mellan kommentarsrader och kodrader, men den kvoten kan inte skilja dem från kommentarerna som förklarar varför.
